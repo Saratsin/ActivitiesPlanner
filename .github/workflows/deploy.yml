@@ -46,12 +46,10 @@ jobs:
       - name: Install clasp
         run: npm install -g @google/clasp
 
-      # Step 4: Create the .clasprc.json authentication file from the GitHub Secret
-      - name: Create .clasprc.json
-        run: echo '${{ secrets.NEW_ENGLAND_SPORTS_FIELD_CLASPRC_JSON }}' > ~/.clasprc.json
-
-      # Step 5: Push the code from the repo to the Apps Script project
+      # Step 4: Push the code from the repo to the Apps Script project
       - name: Push code to Apps Script
         run: |
           cd src
+          echo '${{ secrets.NEW_ENGLAND_SPORTS_FIELD_CLASP_JSON }}' > .clasp.json
+          echo '${{ secrets.NEW_ENGLAND_SPORTS_FIELD_CLASPRC_JSON }}' > ~/.clasprc.json
           clasp push -f
