@@ -17,11 +17,12 @@ const SCRIPT_TIMEZONE = Session.getScriptTimeZone(); // Timezone of the script p
 // Delay is calculated from the moment the poll is created (around POLL_CREATION_HOUR).
 // DayOfWeek: 0 = Sunday, 1 = Monday, ..., 6 = Saturday
 const VOTING_SCHEDULE = {
+  0: { activity: 'Баскетбол', activityStartTime: '18:00', checkDelayMinutes: (POLL_CHECK_HOUR-POLL_CREATION_HOUR)*60-1    }, // Sunday: Check same day ~17:00
   // Day: { activity: 'Activity Name', checkDelayMinutes: Delay }
-  1: { activity: 'Баскетбол', activityStartTime: '18:00', checkDelayMinutes: (POLL_CHECK_HOUR-POLL_CREATION_HOUR)*60-1    }, // Monday: Check same day ~17:00
   2: { activity: 'Футбол'   , activityStartTime: '19:00', checkDelayMinutes: (POLL_CHECK_HOUR-POLL_CREATION_HOUR)*60-1    }, // Tuesday: Check same day ~17:00
+  3: { activity: 'Баскетбол', activityStartTime: '18:00', checkDelayMinutes: (POLL_CHECK_HOUR-POLL_CREATION_HOUR)*60-1    }, // Wednesday: Check same day ~17:00
   4: { activity: 'Футбол', activityStartTime: '19:00', checkDelayMinutes: (POLL_CHECK_HOUR-POLL_CREATION_HOUR)*60-1 }, // Thursday: Check same day ~17:00
-  6: { activity: 'Баскетбол', activityStartTime: '18:00', checkDelayMinutes: (POLL_CHECK_HOUR-POLL_CREATION_HOUR)*60-1    } // Saturday: Check same day ~17:00
+  //5: { activity: 'Баскетбол', activityStartTime: '18:00', checkDelayMinutes: (POLL_CHECK_HOUR-POLL_CREATION_HOUR)*60-1    }  // Friday: Check same day ~17:00
 };
 
 // --- Text Constants & Templates (User-Facing Only) ---
