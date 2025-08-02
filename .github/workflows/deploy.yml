@@ -41,15 +41,19 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 18
-
+      
       # Step 3: Install clasp
       - name: Install clasp
-        run: npm install -g @google/clasp
+        run: |
+          npm --version
+          npm install -g @google/clasp@3.0.6-alpha
+
 
       # Step 4: Push the code from the repo to the Apps Script project
       - name: Push code to Apps Script
         run: |
+          echo '${{ secrets.NEW_ENGLAND_SPORTS_FIELD_CLASPRC_JSON }}' > ~/.clasprc.json;
           cd src
-          echo ${{ secrets.NEW_ENGLAND_SPORTS_FIELD_CLASP_JSON }} > .clasp.json
-          echo ${{ secrets.NEW_ENGLAND_SPORTS_FIELD_CLASPRC_JSON }} > ~/.clasprc.json
+          echo '${{ secrets.NEW_ENGLAND_SPORTS_FIELD_CLASP_JSON }}' > .clasp.json;
+          clasp --version
           clasp push -f
