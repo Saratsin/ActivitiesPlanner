@@ -52,4 +52,6 @@ jobs:
 
       # Step 5: Push the code from the repo to the Apps Script project
       - name: Push code to Apps Script
-        run: clasp push -f --rootDir src
+        run: |
+          cd src
+          clasp push -f
