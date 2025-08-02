@@ -18,7 +18,7 @@ const DAYS_TO_SYNC = 7;
 function syncCalendars() {
   // Get a lock specific to this script project.
   const lock = LockService.getScriptLock();
-  const timeoutMilliseconds = 15000; // Wait up to 15 seconds for the lock. Adjust as needed.
+  const timeoutMilliseconds = 20000; // 20 seconds timeout for acquiring the lock
 
   Logger.log("Attempting to acquire lock for syncCalendars...");
   const lockAcquired = lock.tryLock(timeoutMilliseconds);

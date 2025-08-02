@@ -1,0 +1,51 @@
+name: Deployment
+
+on:
+  push:
+    branches:
+      - main
+      - release/new-england-sports-field
+
+jobs:
+  # Synchronize the main branch with the release branch.
+  # Made for simplicity, if some new projects will appear, remove this sync.
+  sync-new-england-sports-field:
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+    steps:
+      - name: Checkout main branch
+        uses: actions/checkout@v4
+
+      - name: Push to release branch
+        uses: ad-m/github-push-action@v0.6.0
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          branch: release/new-england-sports-field
+          force: true
+
+  # Deploy the code to Google Apps Script for New England Sports Field.
+  deploy-new-england-sports-field:
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/release/new-england-sports-field'
+    steps:
+      # Step 1: Check out your repository's code
+      - name: Checkout release branch
+        uses: actions/checkout@v4
+
+      # Step 2: Set up Node.js, which is required for clasp
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 18
+
+      # Step 3: Install clasp
+      - name: Install clasp
+        run: npm install -g @google/clasp
+
+      # Step 4: Create the .clasprc.json authentication file from the GitHub Secret
+      - name: Create .clasprc.json
+        run: echo '${{ secrets.NEW_ENGLAND_SPORTS_FIELD_CLASPRC_JSON }}' > ~/.clasprc.json
+
+      # Step 5: Push the code from the repo to the Apps Script project
+      - name: Push code to Apps Script
+        run: clasp push -f --rootDir src
