@@ -50,6 +50,6 @@ jobs:
       - name: Push code to Apps Script
         run: |
           cd src
-          echo '${{ secrets.NEW_ENGLAND_SPORTS_FIELD_CLASP_JSON }}' > .clasp.json
-          echo '${{ secrets.NEW_ENGLAND_SPORTS_FIELD_CLASPRC_JSON }}' > ~/.clasprc.json
+          echo ${{ secrets.NEW_ENGLAND_SPORTS_FIELD_CLASP_JSON }} > .clasp.json
+          echo ${{ secrets.NEW_ENGLAND_SPORTS_FIELD_CLASPRC_JSON }} > ~/.clasprc.json
           clasp push -f
