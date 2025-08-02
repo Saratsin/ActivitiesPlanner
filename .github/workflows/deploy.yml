@@ -22,7 +22,7 @@ jobs:
           # Use the Personal Access Token which has permissions to bypass branch protection
           github_token: ${{ secrets.ACTIONS_PAT }}
           branch: release/new-england-sports-field
-          force: true
+          force_with_lease: true
 
   # Deploy the code to Google Apps Script for New England Sports Field.
   deploy-new-england-sports-field:
