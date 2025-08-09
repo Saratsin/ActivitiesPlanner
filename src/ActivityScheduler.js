@@ -11,7 +11,28 @@ class ActivityScheduler {
   }
 
   /**
-   * Send voting poll for current day
+   * Sync polls: check results and send new voting polls
+   * @returns {Object} { processedCount, sendResult }
+   */
+  syncPolls() {
+    Utils.logInfo("Starting poll sync: checking results and sending voting poll.");
+    const processedCount = checkPollResults();
+    const sendResult = sendVotingPoll();
+    Utils.logInfo("Poll sync completed.");
+    return { processedCount, sendResult };
+  }
+
+  /**
+   * Check poll results for due polls
+   * @returns {number} Number of polls processed
+   */
+  checkPollResults() {
+    const pollProperties = this.pollManager.getAllPollProperties();
+    return this.pollResultsProcessor.processDuePolls(pollProperties);
+  }
+  
+  /**
+   * Send voting poll for current day and time
    * @returns {boolean} Success status
    */
   sendVotingPoll() {
@@ -52,15 +73,6 @@ class ActivityScheduler {
         return false;
       }
     }
-  }
-
-  /**
-   * Check poll results for due polls
-   * @returns {number} Number of polls processed
-   */
-  checkPollResults() {
-    const pollProperties = this.pollManager.getAllPollProperties();
-    return this.pollResultsProcessor.processDuePolls(pollProperties);
   }
 
   /**
