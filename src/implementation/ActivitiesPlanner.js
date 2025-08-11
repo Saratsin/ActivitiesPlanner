@@ -1,6 +1,3 @@
-/**
- * ActivitiesPlanner - Main application class that coordinates all components
- */
 class ActivitiesPlanner {
   constructor() {
     this.configManager = new ConfigManager();
@@ -9,10 +6,6 @@ class ActivitiesPlanner {
     this.activityScheduler = new ActivityScheduler(this.configManager, this.telegramBot, this.calendarManager);
   }
 
-  /**
-   * Sync calendars with lock protection
-   * @returns {Object} Sync results
-   */
   syncCalendars() {
     return Utils.executeWithLock(() => {
       Utils.logInfo("Starting calendar sync process.");
@@ -22,10 +15,6 @@ class ActivitiesPlanner {
     });
   }
 
-  /**
-   * Sync polls: check results and send new voting polls with lock protection
-   * @returns {Object} { processedCount, sendResult }
-   */
   syncPolls() {
     return Utils.executeWithLock(() => {
       Utils.logInfo("Starting poll sync: checking results and sending voting poll.");
@@ -33,5 +22,9 @@ class ActivitiesPlanner {
       Utils.logInfo("Poll sync completed.");
       return results;
     });
+  }
+
+  clearAllPollProperties() {
+    return this.activityScheduler.clearAllPollProperties();
   }
 }

@@ -1,16 +1,5 @@
-/**
- * AppEntry - Global entry points and Google Apps Script trigger functions
- * This file contains all the global functions that serve as entry points for
- * Google Apps Script triggers and manual execution.
- */
-
-// Global application instance
 let planner = null;
 
-/**
- * Get or create the global application instance
- * @returns {ActivitiesPlanner} Application instance
- */
 function getPlanner() {
   if (!planner) {
     planner = new ActivitiesPlanner();
@@ -33,7 +22,15 @@ function syncCalendars() {
 /**
  * Main polls sync function (called by time trigger)
  */
-
 function syncPolls() {
   return getPlanner().syncPolls();
+}
+
+// =====================
+// AUXILIARY ENTRY POINTS
+// These functions are called manually by developers
+// =====================
+
+function clearAllPollProperties() {
+  return getPlanner().clearAllPollProperties();
 }
