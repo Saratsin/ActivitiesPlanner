@@ -86,8 +86,11 @@ class CalendarManager {
     }
 
     // TODO remove sourceEventId deletion after removal of calendars sync.
-    const sourceCalendar = this.getSourceCalendar();
-    const sourceEventIdWithStartTime = event.getTag(CONFIG_SOURCE_EVENT_ID_KEY).split('|');
+    const sourceEventTag = event.getTag(CONFIG_SOURCE_EVENT_ID_KEY);
+    if (!sourceEventTag) {
+      return false;
+    }
+    const sourceEventIdWithStartTime = sourceEventTag.split('|');
     const sourceEventId = sourceEventIdWithStartTime[0];
     const sourceEventStartTime = new Date(Number.parseInt(sourceEventIdWithStartTime[1]));
     let sourceEvent = sourceCalendar.getEventById(sourceEventId);
