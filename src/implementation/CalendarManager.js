@@ -90,16 +90,22 @@ class CalendarManager {
     if (!sourceEventTag) {
       return false;
     }
+    
     const sourceEventIdWithStartTime = sourceEventTag.split('|');
     const sourceEventId = sourceEventIdWithStartTime[0];
-    const sourceEventStartTime = new Date(Number.parseInt(sourceEventIdWithStartTime[1]));
+    const sourceCalendar = this.getSourceCalendar();
     let sourceEvent = sourceCalendar.getEventById(sourceEventId);
+    if (!sourceEvent) {
+      return false;
+    }
+    
+    const sourceEventStartTime = new Date(Number.parseInt(sourceEventIdWithStartTime[1]));
     if (sourceEvent.getStartTime().getTime() !== sourceEventStartTime.getTime()) {
       sourceEvent = sourceCalendar.getEvents(sourceEventStartTime, new Date(sourceEventStartTime.getTime() + 8 * 60 * 60 * 1000))
         .find(event => event.getStartTime().getTime() === sourceEventStartTime.getTime() && event.getId() === sourceEventId);
     }
-    sourceEvent.deleteEvent();
 
+    sourceEvent.deleteEvent();
     event.deleteEvent();
 
     return true;
