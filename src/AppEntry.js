@@ -26,6 +26,27 @@ function syncPolls() {
   return getPlanner().syncPolls();
 }
 
+// ==========================================
+// WEBHOOKS HANDLING
+// These functions are called by external services, e.g. Telegram Bot
+// ==========================================
+
+/**
+ * Handles incoming POST requests from webhooks
+ * @param {object} e - The event object containing the POST request data.
+ * @returns {ContentService.TextOutput} - An empty response to acknowledge receipt
+ */
+function doPost(e) {
+  try {
+    const postDataJson = JSON.parse(e.postData.contents);
+    Utils.logInfo(`Received JSON data: ${JSON.stringify(postDataJson)}`);
+  } catch (error) {
+    Utils.logError(`Error parsing post data contents. Raw received data: ${e.postData.contents}`, error);
+  }
+
+  return ContentService.createTextOutput('');
+}
+
 // =====================
 // AUXILIARY ENTRY POINTS
 // These functions are called manually by developers
