@@ -76,15 +76,17 @@ class CalendarManager {
   }
 
   deleteEventById(eventId) {
-    const calendar = this.getSourceCalendar();
-    if (!calendar) {
-      return false;
-    }
-
-    const event = calendar.getEventById(eventId);
+    const bookingsCalendar = this.getBookingsCalendar();
+    const event = bookingsCalendar.getEventById(eventId);
     if (!event) {
       return false;
     }
+
+    // TODO remove sourceEventId deletion after removal of calendars sync.
+    const sourceCalendar = this.getSourceCalendar();
+    const sourceEventId = event.getTag(CONFIG_SOURCE_EVENT_ID_KEY);
+    const sourceEvent = sourceCalendar.getEventById(sourceEventId);
+    sourceEvent.deleteEvent();
 
     event.deleteEvent();
 
@@ -95,8 +97,9 @@ class CalendarManager {
   // TODO Remove calendars syncing after the telegram bot migration
 
 
-  createTargetEvent(bookingsCalendar, sourceEvent, sourceId) {
+  createBookingsCalendarEvent(sourceEvent, sourceId) {
     try {
+      const bookingsCalendar = this.getBookingsCalendar();
       const eventTitle = sourceEvent.getTitle();
       
       // Handle group events that don't start with 'НА СпортМайданчик'
@@ -217,9 +220,9 @@ class CalendarManager {
     // Add new events
     let addedCount = 0;
     sourceEvents.forEach(sourceEvent => {
-      const sourceId = `${sourceEvent.getId()}+${sourceEvent.getStartTime()}`;
+      const sourceId = sourceEvent.getId();
       if (!targetEventMap.has(sourceId)) {
-        const newEvent = this.createTargetEvent(bookingsCalendar, sourceEvent, sourceId);
+        const newEvent = this.createBookingsCalendarEvent(sourceEvent, sourceId);
         if (newEvent) {
           addedCount++;
         }
