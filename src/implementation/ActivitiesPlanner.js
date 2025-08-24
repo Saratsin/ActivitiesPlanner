@@ -18,9 +18,8 @@ class ActivitiesPlanner {
   syncPolls() {
     return Utils.executeWithLock(() => {
       Utils.logInfo("Starting poll sync: checking results and sending voting poll.");
-      const results = this.activityScheduler.syncPolls();
+      this.activityScheduler.syncPolls();
       Utils.logInfo("Poll sync completed.");
-      return results;
     });
   }
 

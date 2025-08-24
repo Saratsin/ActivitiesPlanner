@@ -12,4 +12,11 @@ class EventData {
     this.startDateTime = startDateTime;
     this.endDateTime = endDateTime;
   }
+
+  isValid() {
+    return this.id &&
+           this.title &&
+           this.startDateTime &&
+           this.endDateTime;
+  }
 }

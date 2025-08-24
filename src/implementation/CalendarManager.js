@@ -8,67 +8,6 @@ class CalendarManager {
     return CalendarApp.getCalendarById(bookingsCalendarId);
   }
 
-  createTargetEvent(bookingsCalendar, sourceEvent, sourceId) {
-    try {
-      const eventTitle = sourceEvent.getTitle();
-      
-      // Handle group events that don't start with 'НА СпортМайданчик'
-      if (!eventTitle.startsWith('НА СпортМайданчик')) {
-        Utils.logInfo(`Adding new group event: "${eventTitle}" (Source ID: ${sourceId})`);
-        const newGroupTargetEvent = bookingsCalendar.createEvent(
-          eventTitle,
-          sourceEvent.getStartTime(),
-          sourceEvent.getEndTime(),
-          {
-            location: sourceEvent.getLocation() || '',
-            description: sourceEvent.getDescription() || '',
-            guests: ''
-          }
-        );
-        newGroupTargetEvent.setTag(CONFIG_SOURCE_EVENT_ID_KEY, sourceId);
-        return newGroupTargetEvent;
-      }
-
-      // Handle old booking sport events
-      const eventData = this.extractOldBookingEventData(sourceEvent);
-      Utils.logInfo(`Adding new event: "${eventData.title}" (Source ID: ${sourceId})`);
-      
-      const newTargetEvent = bookingsCalendar.createEvent(
-        eventData.title,
-        sourceEvent.getStartTime(),
-        sourceEvent.getEndTime(),
-        {
-          location: eventData.location,
-          description: eventData.description,
-          guests: ''
-        }
-      );
-      
-      newTargetEvent.setTag(CONFIG_SOURCE_EVENT_ID_KEY, sourceId);
-      return newTargetEvent;
-    } catch (e) {
-      Utils.logError(`Calendar event creation (${sourceId})`, e);
-      return null;
-    }
-  }
-
-  //TODO Rewrite it to use just event id
-  deleteEventById(eventId) {
-    const calendar = this.getSourceCalendar();
-    if (!calendar) {
-      return false;
-    }
-
-    const event = calendar.getEventById(eventId);
-    if (!event) {
-      return false;
-    }
-
-    event.deleteEvent();
-
-    return true;
-  }
-
   getNextGroupEventData(currentDateTime) {
     const startDateTimeToCheck = currentDateTime;
     const endDateTimeToCheck = new Date(startDateTimeToCheck.getTime() + 24 * 60 * 60 * 1000);
@@ -136,9 +75,69 @@ class CalendarManager {
     return text.substring(startIndex + startMarker.length, endIndex);
   }
 
+  deleteEventById(eventId) {
+    const calendar = this.getSourceCalendar();
+    if (!calendar) {
+      return false;
+    }
+
+    const event = calendar.getEventById(eventId);
+    if (!event) {
+      return false;
+    }
+
+    event.deleteEvent();
+
+    return true;
+  }
+
 
   // TODO Remove calendars syncing after the telegram bot migration
 
+
+  createTargetEvent(bookingsCalendar, sourceEvent, sourceId) {
+    try {
+      const eventTitle = sourceEvent.getTitle();
+      
+      // Handle group events that don't start with 'НА СпортМайданчик'
+      if (!eventTitle.startsWith('НА СпортМайданчик')) {
+        Utils.logInfo(`Adding new group event: "${eventTitle}" (Source ID: ${sourceId})`);
+        const newGroupTargetEvent = bookingsCalendar.createEvent(
+          eventTitle,
+          sourceEvent.getStartTime(),
+          sourceEvent.getEndTime(),
+          {
+            location: sourceEvent.getLocation() || '',
+            description: sourceEvent.getDescription() || '',
+            guests: ''
+          }
+        );
+        newGroupTargetEvent.setTag(CONFIG_SOURCE_EVENT_ID_KEY, sourceId);
+        return newGroupTargetEvent;
+      }
+
+      // Handle old booking sport events
+      const eventData = this.extractOldBookingEventData(sourceEvent);
+      Utils.logInfo(`Adding new event: "${eventData.title}" (Source ID: ${sourceId})`);
+      
+      const newTargetEvent = bookingsCalendar.createEvent(
+        eventData.title,
+        sourceEvent.getStartTime(),
+        sourceEvent.getEndTime(),
+        {
+          location: eventData.location,
+          description: eventData.description,
+          guests: ''
+        }
+      );
+      
+      newTargetEvent.setTag(CONFIG_SOURCE_EVENT_ID_KEY, sourceId);
+      return newTargetEvent;
+    } catch (e) {
+      Utils.logError(`Calendar event creation (${sourceId})`, e);
+      return null;
+    }
+  }
 
   extractOldBookingEventData(sourceEvent) {
     const fullDescription = sourceEvent.getDescription();

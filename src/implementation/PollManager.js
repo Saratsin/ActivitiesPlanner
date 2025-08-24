@@ -4,7 +4,7 @@ class PollManager {
     this.telegramBot = telegramBot;
   }
 
-  sendAndStorePoll(groupEventData) {
+  trySendAndStorePoll(groupEventData) {
     // Check if poll already exists
     if (this.isPollAlreadyScheduled(groupEventData)) {
       return { success: false, reason: 'already_exists' };
@@ -43,7 +43,7 @@ class PollManager {
       if (key.startsWith(CONFIG_POLL_PROPERTY_PREFIX)) {
         try {
           const alreadyScheduledGroupEventData = GroupEventData.parseFromJson(allProperties[key]);
-          if (alreadyScheduledGroupEventData.equals(groupEventData)) {
+          if (alreadyScheduledGroupEventData.id === groupEventData.id) {
             Utils.logInfo(`Active poll for ${groupEventData.getActivityName()} on ${groupEventData.startDateTime} already exists in properties. Skipping creation.`);
             return true;
           }

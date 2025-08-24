@@ -38,10 +38,7 @@ class GroupEventData extends EventData {
   }
 
   isValid() {
-    return this.id &&
-           this.title &&
-           this.startDateTime &&
-           this.endDateTime &&
+    return super.isValid() &&
            this.pollCreationDateTime &&
            this.pollVotesCountingDateTime &&
            this.minPositiveVotersCount;
@@ -61,16 +58,5 @@ class GroupEventData extends EventData {
 
   getStartDateTimeString() {
     return `${this.getStartTimeString()} (${this.getStartDateString()})`;
-  }
-
-  equals(other) {
-    return other instanceof GroupEventData &&
-           this.id === other.id &&
-           this.title === other.title &&
-           this.startDateTime === other.startDateTime &&
-           this.endDateTime === other.endDateTime &&
-           this.pollCreationDateTime === other.pollCreationDateTime &&
-           this.pollVotesCountingDateTime === other.pollVotesCountingDateTime &&
-           this.minPositiveVotersCount === other.minPositiveVotersCount;
   }
 }

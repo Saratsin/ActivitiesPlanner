@@ -9,45 +9,43 @@ class ActivityScheduler {
 
   syncPolls() {
     Utils.logInfo("Starting poll sync: checking results and sending voting poll.");
-    const processedCount = this.checkPollResults();
-    const sendResult = this.sendVotingPoll();
+    this.checkPollResults();
+    this.sendVotingPoll();
     Utils.logInfo("Poll sync completed.");
-    return { processedCount, sendResult };
   }
 
   checkPollResults() {
     const pollProperties = this.pollManager.getAllPollProperties();
-    return this.pollResultsProcessor.processDuePolls(pollProperties);
+    this.pollResultsProcessor.processDuePolls(pollProperties);
   }
 
   sendVotingPoll() {
-    const today = new Date();
-    //today.setHours(0, 0, 0, 0);
-    //today.setTime(today.getTime() + 6 * 24 * 60 * 60 * 1000);
+    const now = new Date();
 
-    Utils.logInfo(`Running sendVotingPoll for ${today}.`);
+    Utils.logInfo(`Running sendVotingPoll for ${now}.`);
 
-    const nextGroupEventData = this.calendarManager.getNextGroupEventData(today);
-    if (!nextGroupEventData || today > nextGroupEventData.pollVotesCountingDateTime) {
-      Utils.logInfo(`No valid voting activity for that should be started at ${today}.`);
-      return false;
+    const nextGroupEventData = this.calendarManager.getNextGroupEventData(now);
+    if (!nextGroupEventData || 
+        nextGroupEventData.pollCreationDateTime > now || 
+        nextGroupEventData.pollVotesCountingDateTime < now) {
+      Utils.logInfo(`No valid voting activity that should be started at ${now}.`);
+      return;
     }
 
     // Sends and stores poll for next group event data
-    const result = this.pollManager.sendAndStorePoll(nextGroupEventData);
+    const result = this.pollManager.trySendAndStorePoll(nextGroupEventData);
     
     if (result.success) {
-      Utils.logInfo("Finished sendVotingPoll (poll sent successfully).");
-      return true;
-    } else {
-      if (result.reason === 'already_exists') {
-        Utils.logInfo("Finished sendVotingPoll (found existing poll).");
-        return true;
-      } else {
-        Utils.logError('Poll sending workflow', `Failed to send poll for ${activity}.`);
-        return false;
-      }
+      Utils.logInfo("Poll sent successfully.");
+      return;
     }
+    
+    if (result.reason === 'already_exists') {
+      Utils.logInfo("Finished sendVotingPoll (found existing poll).");
+      return;
+    }
+    
+    Utils.logError('Poll sending workflow', `Failed to send poll for ${activity}.`);
   }
 
   clearAllPollProperties() {
