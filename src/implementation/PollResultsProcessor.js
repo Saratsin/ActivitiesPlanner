@@ -43,7 +43,7 @@ class PollResultsProcessor {
           : this.configManager.getMessage('bookingCancelled')(processedResults.votesFor, groupEventData.getActivityName(), groupEventData.getStartDateTimeString());
 
         if (!processedResults.bookingConfirmed) {
-          this.calendarManager.deleteEventById(groupEventData.id);
+          this.calendarManager.deleteBookingEventById(groupEventData.id);
         }
 
         this.telegramBot.sendMessage(groupChatId, resultsMessage, pollMessageId);

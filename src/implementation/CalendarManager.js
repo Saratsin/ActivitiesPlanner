@@ -18,8 +18,11 @@ class CalendarManager {
     
     const groupEvent = events
       .filter(event => event.getStartTime() > startDateTimeToCheck)
+      .filter(event => event.getTitle().startsWith('НА '))
       // TODO Replace with single 'НА ' after migration to the telegram bot reservations
-      .find(event => event.getTitle().startsWith('НА ') && !event.getTitle().startsWith('НА СпортМайданчик'));
+      .filter(event => !event.getTitle().startsWith('НА СпортМайданчик'))
+      .sort((evA, evB) => evA.getStartTime().getTime() - evB.getStartTime().getTime())
+      .find(_ => true);
 
     if (!groupEvent) {
       Utils.logInfo('No group activity event found.');
@@ -75,7 +78,7 @@ class CalendarManager {
     return text.substring(startIndex + startMarker.length, endIndex);
   }
 
-  deleteEventById(eventId) {
+  deleteBookingEventById(eventId) {
     const bookingsCalendar = this.getBookingsCalendar();
     const event = bookingsCalendar.getEventById(eventId);
     if (!event) {
@@ -84,8 +87,14 @@ class CalendarManager {
 
     // TODO remove sourceEventId deletion after removal of calendars sync.
     const sourceCalendar = this.getSourceCalendar();
-    const sourceEventId = event.getTag(CONFIG_SOURCE_EVENT_ID_KEY);
-    const sourceEvent = sourceCalendar.getEventById(sourceEventId);
+    const sourceEventIdWithStartTime = event.getTag(CONFIG_SOURCE_EVENT_ID_KEY).split('|');
+    const sourceEventId = sourceEventIdWithStartTime[0];
+    const sourceEventStartTime = new Date(Number.parseInt(sourceEventIdWithStartTime[1]));
+    let sourceEvent = sourceCalendar.getEventById(sourceEventId);
+    if (sourceEvent.getStartTime().getTime() !== sourceEventStartTime.getTime()) {
+      sourceEvent = sourceCalendar.getEvents(sourceEventStartTime, new Date(sourceEventStartTime.getTime() + 8 * 60 * 60 * 1000))
+        .find(event => event.getStartTime().getTime() === sourceEventStartTime.getTime() && event.getId() === sourceEventId);
+    }
     sourceEvent.deleteEvent();
 
     event.deleteEvent();
@@ -97,14 +106,13 @@ class CalendarManager {
   // TODO Remove calendars syncing after the telegram bot migration
 
 
-  createBookingsCalendarEvent(sourceEvent, sourceId) {
+  createBookingsCalendarEvent(sourceEvent, sourceIdWithStartTime) {
     try {
       const bookingsCalendar = this.getBookingsCalendar();
       const eventTitle = sourceEvent.getTitle();
       
       // Handle group events that don't start with 'НА СпортМайданчик'
       if (!eventTitle.startsWith('НА СпортМайданчик')) {
-        Utils.logInfo(`Adding new group event: "${eventTitle}" (Source ID: ${sourceId})`);
         const newGroupBookingEvent = bookingsCalendar.createEvent(
           eventTitle,
           sourceEvent.getStartTime(),
@@ -115,14 +123,13 @@ class CalendarManager {
             guests: ''
           }
         );
-        newGroupBookingEvent.setTag(CONFIG_SOURCE_EVENT_ID_KEY, sourceId);
+        Utils.logInfo(`Adding new group event: "${newGroupBookingEvent.getTitle()}" (ID: ${newGroupBookingEvent.getId()}.Source ID with Start Time: ${sourceIdWithStartTime})`);
+        newGroupBookingEvent.setTag(CONFIG_SOURCE_EVENT_ID_KEY, sourceIdWithStartTime);
         return newGroupBookingEvent;
       }
 
       // Handle old booking sport events
       const eventData = this.extractOldBookingEventData(sourceEvent);
-      Utils.logInfo(`Adding new event: "${eventData.title}" (Source ID: ${sourceId})`);
-      
       const newBookingEvent = bookingsCalendar.createEvent(
         eventData.title,
         sourceEvent.getStartTime(),
@@ -134,10 +141,11 @@ class CalendarManager {
         }
       );
       
-      newBookingEvent.setTag(CONFIG_SOURCE_EVENT_ID_KEY, sourceId);
+      Utils.logInfo(`Adding new event: "${newBookingEvent.getTitle()}" (ID: ${newBookingEvent.getId()}. Source ID with Start Time: ${sourceIdWithStartTime})`);
+      newBookingEvent.setTag(CONFIG_SOURCE_EVENT_ID_KEY, sourceIdWithStartTime);
       return newBookingEvent;
     } catch (e) {
-      Utils.logError(`Calendar event creation (${sourceId})`, e);
+      Utils.logError(`Calendar event creation (${sourceIdWithStartTime})`, e);
       return null;
     }
   }
@@ -199,15 +207,15 @@ class CalendarManager {
     // Create lookup maps
     const sourceEventMap = new Map();
     sourceEvents.forEach(event => {
-      sourceEventMap.set(event.getId(), event);
+      sourceEventMap.set(`${event.getId()}|${event.getStartTime().getTime()}`, event);
     });
 
     const bookingEventMap = new Map();
     const bookingEventsWithoutSourceId = [];
     bookingEvents.forEach(event => {
-      const sourceId = event.getTag(CONFIG_SOURCE_EVENT_ID_KEY);
-      if (sourceId) {
-        bookingEventMap.set(sourceId, event);
+      const sourceIdWithStartTime = event.getTag(CONFIG_SOURCE_EVENT_ID_KEY);
+      if (sourceIdWithStartTime) {
+        bookingEventMap.set(sourceIdWithStartTime, event);
       } else {
         bookingEventsWithoutSourceId.push(event);
       }
@@ -221,8 +229,10 @@ class CalendarManager {
     let addedCount = 0;
     sourceEvents.forEach(sourceEvent => {
       const sourceId = sourceEvent.getId();
-      if (!bookingEventMap.has(sourceId)) {
-        const newEvent = this.createBookingsCalendarEvent(sourceEvent, sourceId);
+      const startTime = sourceEvent.getStartTime().getTime();
+      const sourceIdWithStartTime = `${sourceId}|${startTime}`;
+      if (!bookingEventMap.has(sourceIdWithStartTime)) {
+        const newEvent = this.createBookingsCalendarEvent(sourceEvent, sourceIdWithStartTime);
         if (newEvent) {
           addedCount++;
         }
@@ -231,9 +241,9 @@ class CalendarManager {
 
     // Delete obsolete events
     let deletedCount = 0;
-    bookingEventMap.forEach((bookingEvent, sourceId) => {
-      if (!sourceEventMap.has(sourceId)) {
-        if (this.deleteEvent(bookingEvent, sourceId)) {
+    bookingEventMap.forEach((bookingEvent, sourceIdWithStartTime) => {
+      if (!sourceEventMap.has(sourceIdWithStartTime)) {
+        if (this.deleteEvent(bookingEvent, sourceIdWithStartTime)) {
           deletedCount++;
         }
       }
@@ -248,13 +258,13 @@ class CalendarManager {
     return CalendarApp.getCalendarById(sourceCalId);
   }
 
-  deleteEvent(event, sourceId) {
+  deleteEvent(event, sourceIdWithStartTime) {
     try {
-      Utils.logInfo(`Deleting obsolete event: "${event.getTitle()}" (Linked Source ID: ${sourceId})`);
+      Utils.logInfo(`Deleting obsolete event: "${event.getTitle()}" (Linked Source ID with Start Time: ${sourceIdWithStartTime})`);
       event.deleteEvent();
       return true;
     } catch (e) {
-      Utils.logError(`Calendar event deletion (ID: ${event.getId()}, Linked Source ID: ${sourceId})`, e);
+      Utils.logError(`Calendar event deletion (ID: ${event.getId()}, Linked Source ID: with Start Time ${sourceIdWithStartTime})`, e);
       return false;
     }
   }
