@@ -105,7 +105,7 @@ class CalendarManager {
       // Handle group events that don't start with 'НА СпортМайданчик'
       if (!eventTitle.startsWith('НА СпортМайданчик')) {
         Utils.logInfo(`Adding new group event: "${eventTitle}" (Source ID: ${sourceId})`);
-        const newGroupTargetEvent = bookingsCalendar.createEvent(
+        const newGroupBookingEvent = bookingsCalendar.createEvent(
           eventTitle,
           sourceEvent.getStartTime(),
           sourceEvent.getEndTime(),
@@ -115,15 +115,15 @@ class CalendarManager {
             guests: ''
           }
         );
-        newGroupTargetEvent.setTag(CONFIG_SOURCE_EVENT_ID_KEY, sourceId);
-        return newGroupTargetEvent;
+        newGroupBookingEvent.setTag(CONFIG_SOURCE_EVENT_ID_KEY, sourceId);
+        return newGroupBookingEvent;
       }
 
       // Handle old booking sport events
       const eventData = this.extractOldBookingEventData(sourceEvent);
       Utils.logInfo(`Adding new event: "${eventData.title}" (Source ID: ${sourceId})`);
       
-      const newTargetEvent = bookingsCalendar.createEvent(
+      const newBookingEvent = bookingsCalendar.createEvent(
         eventData.title,
         sourceEvent.getStartTime(),
         sourceEvent.getEndTime(),
@@ -134,8 +134,8 @@ class CalendarManager {
         }
       );
       
-      newTargetEvent.setTag(CONFIG_SOURCE_EVENT_ID_KEY, sourceId);
-      return newTargetEvent;
+      newBookingEvent.setTag(CONFIG_SOURCE_EVENT_ID_KEY, sourceId);
+      return newBookingEvent;
     } catch (e) {
       Utils.logError(`Calendar event creation (${sourceId})`, e);
       return null;
@@ -191,37 +191,37 @@ class CalendarManager {
     }
 
     const sourceEvents = sourceCal.getEvents(now, future);
-    const targetEvents = bookingsCalendar.getEvents(now, future);
+    const bookingEvents = bookingsCalendar.getEvents(now, future);
 
     Utils.logInfo(`Found ${sourceEvents.length} events in source calendar.`);
-    Utils.logInfo(`Found ${targetEvents.length} events in target calendar (in sync range).`);
+    Utils.logInfo(`Found ${bookingEvents.length} events in bookings calendar (in sync range).`);
 
     // Create lookup maps
     const sourceEventMap = new Map();
     sourceEvents.forEach(event => {
-      sourceEventMap.set(`${event.getId()}+${event.getStartTime()}`, event);
+      sourceEventMap.set(event.getId(), event);
     });
 
-    const targetEventMap = new Map();
-    const targetEventsWithoutSourceId = [];
-    targetEvents.forEach(event => {
+    const bookingEventMap = new Map();
+    const bookingEventsWithoutSourceId = [];
+    bookingEvents.forEach(event => {
       const sourceId = event.getTag(CONFIG_SOURCE_EVENT_ID_KEY);
       if (sourceId) {
-        targetEventMap.set(sourceId, event);
+        bookingEventMap.set(sourceId, event);
       } else {
-        targetEventsWithoutSourceId.push(event);
+        bookingEventsWithoutSourceId.push(event);
       }
     });
 
     Utils.logInfo(`Mapped ${sourceEventMap.size} source events.`);
-    Utils.logInfo(`Mapped ${targetEventMap.size} target events linked to a source event.`);
-    Utils.logInfo(`${targetEventsWithoutSourceId.length} target events found without a source ID link.`);
+    Utils.logInfo(`Mapped ${bookingEventMap.size} booking events linked to a source event.`);
+    Utils.logInfo(`${bookingEventsWithoutSourceId.length} booking events found without a source ID link.`);
 
     // Add new events
     let addedCount = 0;
     sourceEvents.forEach(sourceEvent => {
       const sourceId = sourceEvent.getId();
-      if (!targetEventMap.has(sourceId)) {
+      if (!bookingEventMap.has(sourceId)) {
         const newEvent = this.createBookingsCalendarEvent(sourceEvent, sourceId);
         if (newEvent) {
           addedCount++;
@@ -231,9 +231,9 @@ class CalendarManager {
 
     // Delete obsolete events
     let deletedCount = 0;
-    targetEventMap.forEach((targetEvent, sourceId) => {
+    bookingEventMap.forEach((bookingEvent, sourceId) => {
       if (!sourceEventMap.has(sourceId)) {
-        if (this.deleteEvent(targetEvent, sourceId)) {
+        if (this.deleteEvent(bookingEvent, sourceId)) {
           deletedCount++;
         }
       }

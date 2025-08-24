@@ -57,7 +57,7 @@ class PollManager {
   }
 
   sendPoll(groupEventData) {
-    const chatId = this.configManager.getTargetGroupChatId();
+    const chatId = this.configManager.getTelegramGroupChatId();
 
     const pollQuestion = `${groupEventData.getActivityName()} ${groupEventData.getStartDateTimeString()}`;
     const pollOptions = this.configManager.getMessage('pollOptions');
@@ -77,7 +77,7 @@ class PollManager {
   }
 
   pinMessage(messageId) {
-    const chatId = this.configManager.getTargetGroupChatId();
+    const chatId = this.configManager.getTelegramGroupChatId();
     return this.telegramBot.pinMessage(chatId, messageId);
   }
 

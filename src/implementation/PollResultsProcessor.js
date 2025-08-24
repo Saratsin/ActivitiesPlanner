@@ -29,7 +29,7 @@ class PollResultsProcessor {
       Utils.logInfo(`Processing due poll for ${groupEventData.getActivityName()} on ${groupEventData.startDateTime} (Msg ID: ${pollMessageId}, Check Time: ${checkDateTime})`);
 
       try {
-        const groupChatId = this.configManager.getTargetGroupChatId();
+        const groupChatId = this.configManager.getTelegramGroupChatId();
 
         // Stop the poll in order to get its results
         const pollResults = this.telegramBot.stopPoll(groupChatId, pollMessageId);

@@ -26,7 +26,7 @@ class ConfigManager {
     return this.getProperty(CONFIG_IS_QA_TESTING ? "QA_TARGET_CALENDAR_ID" : "TARGET_CALENDAR_ID");
   }
 
-  getTargetGroupChatId() {
+  getTelegramGroupChatId() {
     return this.getProperty(CONFIG_IS_QA_TESTING ? "QA_TARGET_GROUP_CHAT_ID" : "TARGET_GROUP_CHAT_ID");
   }
 
