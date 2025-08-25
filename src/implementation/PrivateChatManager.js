@@ -1,3 +1,5 @@
+const Activities = ['Футбол', 'Баскетбол', 'Теніс', 'Волейбол', 'Бадмінтон', 'Інше'];
+
 class PrivateChatManager {
     constructor(configManager, telegramBot, calendarManager) {
         this.configManager = configManager;
@@ -105,8 +107,8 @@ class PrivateChatManager {
                 Utils.logInfo("Handling book command");
                 this.telegramBot.sendMessage(
                     update.message.chat.id,
-                    "Оберіть дату та час для бронювання:",
-                    { inline_keyboard: this.getAvailableDates(null) }
+                    "Оберіть активність:",
+                    { inline_keyboard: this.getAvailableActivities(null) }
                 );
                 break;
             case '/help':
@@ -146,7 +148,7 @@ class PrivateChatManager {
 
         const buttonData = JSON.parse(update.data);
         if (buttonData.type === "SelectActivity") {
-            this.handleSelectActivity(update);
+            this.handleActivitySelection(update);
         } else if (buttonData.type === "SelectDate") {
             this.handleSelectDate(update);
         } else if (buttonData.type === "SelectTime") {
@@ -157,6 +159,15 @@ class PrivateChatManager {
         else {
             Utils.logInfo(`Handling unknown callback query data: ${update.data}`);
         }
+    }
+
+    handleActivitySelection(update) {
+        const buttonData = JSON.parse(update.data);
+        this.telegramBot.sendMessage(
+            update.message.chat.id,
+            "Оберіть дату та час для бронювання:",
+            { inline_keyboard: this.getAvailableDates(buttonData) }
+        );
     }
 
     handleConfirmTimeSlotsButton(update) {
@@ -181,9 +192,10 @@ class PrivateChatManager {
         timeSlotsText = mergedTimeSlots.length > 0 ? `\r\n${timeSlotsText.join('\r\n')}` : 'Час не обрано';
         Utils.logInfo(`Selected time slots: ${timeSlotsText}`);
 
+        var activity = Activities[data.activity] || 'Інше';
         this.telegramBot.sendMessage(
             update.message.chat.id,
-            `Ви забронювали на ${date}: ${timeSlotsText} \nДякуємо за бронювання!`
+            `Ви забронювали на ${date} під ${activity}: ${timeSlotsText} \nДякуємо за бронювання!`
         );
 
         this.telegramBot.deleteMessage(update.message.chat.id, update.message.message_id);
@@ -236,15 +248,11 @@ class PrivateChatManager {
     }
 
     getAvailableActivities(parentData) {
-        return [
-            { text: "Футбол", callback_data: ButtonData.fromActivity(parentData, 'football').toString() },
-            { text: "Баскетбол", callback_data: ButtonData.fromActivity(parentData, 'basketball').toString() },
-            { text: "Теніс", callback_data: ButtonData.fromActivity(parentData, 'tennis').toString() },
-            { text: "Волейбол", callback_data: ButtonData.fromActivity(parentData, 'volleyball').toString() },
-            { text: "Бадмінтон", callback_data: ButtonData.fromActivity(parentData, 'badminton').toString() },
-            { text: "Інше", callback_data: ButtonData.fromActivity(parentData, 'other').toString() },
-            { text: "Скасувати", callback_data: "cancel" }
-        ];
+        var activityButtons = [];
+        for (const activity of Activities) {
+            activityButtons.push([{ text: activity, callback_data: ButtonData.fromActivity(parentData, Activities.indexOf(activity)).toString() }]);
+        }
+        return activityButtons; 
     }
 
     getDayTimeSlotsButtons(parentData) {
