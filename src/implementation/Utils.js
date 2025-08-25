@@ -98,8 +98,12 @@ class Utils {
     timeSlots = timeSlots.map(slot => {
       const parts = slot.split('-');
       return {
-        from: Utils.convertToUtc(new Date(`${date}T${parts[0]}:00`)),
-        to: Utils.convertToUtc(new Date(`${date}T${parts[1]}:00`))
+         from: new Date(`${date}T${parts[0]}:00`),
+         to: new Date(`${date}T${parts[1]}:00`)
+
+        // For some reason in local time zone this gives the wrong hour leave the following lines commented if issue will be on production
+        // from: Utils.convertToUtc(new Date(`${date}T${parts[0]}:00`)),
+        // to: Utils.convertToUtc(new Date(`${date}T${parts[1]}:00`))
       };
     });
 
