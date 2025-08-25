@@ -1,4 +1,4 @@
-const CONFIG_IS_QA_TESTING = false;
+const CONFIG_IS_QA_TESTING = true;
 const CONFIG_DAYS_TO_SYNC = 8;
 const CONFIG_SOURCE_EVENT_ID_KEY = 'sourceEventId';
 const CONFIG_POLL_PROPERTY_PREFIX = 'POLL_';
@@ -20,6 +20,11 @@ class ConfigManager {
       this.cachedProperties[key] = PropertiesService.getScriptProperties().getProperty(key);
     }
     return this.cachedProperties[key];
+  }
+
+  setProperty(key, value) {
+    PropertiesService.getScriptProperties().setProperty(key, value);
+    this.cachedProperties[key] = value;
   }
 
   getBookingsCalendarId() {

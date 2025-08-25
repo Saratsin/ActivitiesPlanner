@@ -47,6 +47,20 @@ function doPost(e) {
   return ContentService.createTextOutput('');
 }
 
+// Only for testing
+function pullPrivateChatUpdates() {
+  return getPlanner().pullUpdates();
+}
+
+
+// Only for testing
+function testPullPrivateChatUpdates() {
+  while (true) {
+    const result = getPlanner().pullUpdates(5);
+    
+  }
+}
+
 // =====================
 // AUXILIARY ENTRY POINTS
 // These functions are called manually by developers
