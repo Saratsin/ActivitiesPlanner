@@ -54,7 +54,8 @@ class PrivateChatManager {
 
                 if (update?.message?.chat?.type !== 'private' &&
                     update?.callback_query?.message?.chat?.type !== 'private') {
-                    Utils.logInfo(`Skipping undefined update ${updateLogData}`);
+
+                    // Utils.logInfo(`Skipping undefined update ${updateLogData}`);
                     return;
                 }
 
@@ -105,7 +106,7 @@ class PrivateChatManager {
                 this.telegramBot.sendMessage(
                     update.message.chat.id,
                     "Оберіть дату та час для бронювання:",
-                    { inline_keyboard: this.getAvailableDates() }
+                    { inline_keyboard: this.getAvailableDates(null) }
                 );
                 break;
             case '/help':
@@ -137,28 +138,38 @@ class PrivateChatManager {
 
     handleCallbackQuery(update) {
         Utils.logInfo(`Handling callback query: ${update.data}`);
-        if (update.data.startsWith('book_date_')) {
-            this.handleBookDateButton(update);
-        } else if (update.data.startsWith('book_time_')) {
-            this.handleBookTimeButton(update);
-        } else if (update.data.startsWith('confirm_booking_')) {
-            this.handleConfirmTimeSlotsButton(update);
-        } else if (update.data === 'cancel') {
+
+        if (update.data === 'cancel') {
             this.telegramBot.deleteMessage(update.message.chat.id, update.message.message_id);
-        } else {
+            return;
+        }
+
+        const buttonData = JSON.parse(update.data);
+        if (buttonData.type === "SelectActivity") {
+            this.handleSelectActivity(update);
+        } else if (buttonData.type === "SelectDate") {
+            this.handleSelectDate(update);
+        } else if (buttonData.type === "SelectTime") {
+            this.handleSelectTime(update);
+        } else if (buttonData.type === "Confirm") {
+            this.handleConfirmTimeSlotsButton(update);
+        }
+        else {
             Utils.logInfo(`Handling unknown callback query data: ${update.data}`);
         }
     }
 
     handleConfirmTimeSlotsButton(update) {
-        var date = update.data.split('_')[2];
+        var data = JSON.parse(update.data);
+        var date = data.date;
         Utils.logInfo(`Confirmed booking for date: ${date}`);
         var replyKeyboard = update.message.reply_markup.inline_keyboard;
         var selectedTimeSlots = [];
         replyKeyboard.forEach(row => {
             row.forEach(button => {
                 if (button.text.includes('✅')) {
-                    selectedTimeSlots.push(button.callback_data.split('_').slice(2).join('-'));
+                    var selectedButton = JSON.parse(button.callback_data);
+                    selectedTimeSlots.push(selectedButton.start + '-' + selectedButton.end);
                 }
             });
         });
@@ -167,7 +178,7 @@ class PrivateChatManager {
         var timeSlotsText = mergedTimeSlots.map(slot => {
             return this.getTimeSlotTimeString(slot.from, slot.to);
         });
-        timeSlotsText = mergedTimeSlots.length > 0 ? `Час:\r\n${timeSlotsText.join('\r\n')}` : 'Час не обрано';
+        timeSlotsText = mergedTimeSlots.length > 0 ? `\r\n${timeSlotsText.join('\r\n')}` : 'Час не обрано';
         Utils.logInfo(`Selected time slots: ${timeSlotsText}`);
 
         this.telegramBot.sendMessage(
@@ -178,7 +189,7 @@ class PrivateChatManager {
         this.telegramBot.deleteMessage(update.message.chat.id, update.message.message_id);
     }
 
-    handleBookTimeButton(update) {
+    handleSelectTime(update) {
         var replyKeyboard = update.message.reply_markup.inline_keyboard;
         replyKeyboard.forEach(row => {
             row.forEach(button => {
@@ -199,17 +210,18 @@ class PrivateChatManager {
         );
     }
 
-    handleBookDateButton(update) {
-        const date = update.data.split('_')[2];
+    handleSelectDate(update) {
+        var data = JSON.parse(update.data);
+        const date = data.date;
         Utils.logInfo(`Booking date: ${date}`);
         this.telegramBot.sendMessage(
             update.message.chat.id,
             `Ви обрали дату: ${date}. Будь ласка, оберіть час.`,
-            { inline_keyboard: this.getDayTimeSlotsButtons(date) }
+            { inline_keyboard: this.getDayTimeSlotsButtons(data) }
         );
     }
 
-    getAvailableDates() {
+    getAvailableDates(parentData) {
         let availableDates = [];
         const today = new Date();
         for (let i = 0; i < 7; i++) {
@@ -217,26 +229,43 @@ class PrivateChatManager {
             date.setDate(today.getDate() + i);
             var buttonDate = date.toISOString().split('T')[0]; // Format date as YYYY-MM-DD
             var dayName = Utils.getUkrainianDayOfWeek(date);
-            availableDates.push([{ text: buttonDate + " (" + dayName + ")", callback_data: `book_date_${buttonDate}` }]);
+            availableDates.push([{ text: buttonDate + " (" + dayName + ")", callback_data: ButtonData.fromDate(parentData, date).toString() }]);
         }
         availableDates.push([{ text: "Скасувати", callback_data: "cancel" }]);
         return availableDates;
     }
 
-    getDayTimeSlotsButtons(date) {
-        Utils.logInfo(`Getting time slots for date: ${date}`);
+    getAvailableActivities(parentData) {
+        return [
+            { text: "Футбол", callback_data: ButtonData.fromActivity(parentData, 'football').toString() },
+            { text: "Баскетбол", callback_data: ButtonData.fromActivity(parentData, 'basketball').toString() },
+            { text: "Теніс", callback_data: ButtonData.fromActivity(parentData, 'tennis').toString() },
+            { text: "Волейбол", callback_data: ButtonData.fromActivity(parentData, 'volleyball').toString() },
+            { text: "Бадмінтон", callback_data: ButtonData.fromActivity(parentData, 'badminton').toString() },
+            { text: "Інше", callback_data: ButtonData.fromActivity(parentData, 'other').toString() },
+            { text: "Скасувати", callback_data: "cancel" }
+        ];
+    }
+
+    getDayTimeSlotsButtons(parentData) {
+        Utils.logInfo(`Getting time slots for date: ${parentData?.date}`);
         const timeSlots = [];
-        const startTime = new Date(date + 'T09:00:00'); // Start at 9 AM
-        const endTime = new Date(date + 'T20:00:00');
+        const startTime = new Date(parentData?.date + 'T09:00:00'); // Start at 9 AM
+        const endTime = new Date(parentData?.date + 'T20:00:00');
         var current = startTime;
         while (current < endTime) {
             var nextDate = Utils.dateAdd(current, 'minute', 30);
             var view = this.getTimeSlotTimeString(current, nextDate);
-            var data = this.getTimeSlotButtonData(current, nextDate);
-            timeSlots.push([{ text: view, callback_data: data }]);
+            var data = this.getTimeSlotButtonData(parentData, current, nextDate);
+            var serializedData = data.toString();
+
+            // TODO remove
+            Utils.logInfo(`Prepared data: ${serializedData}`);
+
+            timeSlots.push([{ text: view, callback_data: serializedData }]);
             current = nextDate;
         }
-        timeSlots.push([{ text: "Підтвердити", callback_data: `confirm_booking_${date}` }]);
+        timeSlots.push([{ text: "Підтвердити", callback_data: new ConfirmButtonData(parentData).toString() }]);
         timeSlots.push([{ text: "Скасувати", callback_data: "cancel" }]);
         return timeSlots;
     }
@@ -245,8 +274,8 @@ class PrivateChatManager {
         return `${from.toLocaleTimeString('uk-UA').slice(0, 5)} - ${to.toLocaleTimeString('uk-UA').slice(0, 5)}`;
     }
 
-    getTimeSlotButtonData(from, to) {
-        return `book_time_${from.toISOString().split('T')[1].slice(0, 5)}_${to.toISOString().split('T')[1].slice(0, 5)}`;
+    getTimeSlotButtonData(parentData, from, to) {
+        return ButtonData.fromTime(parentData, from, to);
     }
 
 }
