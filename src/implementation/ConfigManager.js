@@ -1,4 +1,4 @@
-const CONFIG_IS_QA_TESTING = false;
+const CONFIG_IS_QA_TESTING = true;
 const CONFIG_DAYS_TO_SYNC = 8;
 const CONFIG_SOURCE_EVENT_ID_KEY = 'sourceEventId';
 const CONFIG_POLL_PROPERTY_PREFIX = 'POLL_';
@@ -22,6 +22,11 @@ class ConfigManager {
     return this.cachedProperties[key];
   }
 
+  setProperty(key, value) {
+    PropertiesService.getScriptProperties().setProperty(key, value);
+    this.cachedProperties[key] = value;
+  }
+
   getBookingsCalendarId() {
     return this.getProperty(CONFIG_IS_QA_TESTING ? "QA_TARGET_CALENDAR_ID" : "TARGET_CALENDAR_ID");
   }
@@ -36,6 +41,14 @@ class ConfigManager {
 
   getMessage(messageType) {
     return CONFIG_MESSAGES[messageType];
+  }
+
+  getWebhookUrl() {
+    return this.getProperty("TELEGRAM_WEBHOOK_URL");
+  }
+
+  getWebhookApiKey() {
+    return this.getProperty("TELEGRAM_WEBHOOK_API_KEY");
   }
 
   // TODO Remove it when the migration to telegram bot will be completed

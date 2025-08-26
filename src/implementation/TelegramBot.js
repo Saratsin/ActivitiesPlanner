@@ -18,6 +18,10 @@ class TelegramBot {
     return this.callApi('sendMessage', payload);
   }
 
+  sendMessage(chat_id, text, reply_markup = undefined) {
+    return this.callApi('sendMessage', { chat_id, text, reply_markup });
+  }
+
   sendPoll(chatId, question, options) {
     const payload = {
       chat_id: chatId,
@@ -55,6 +59,30 @@ class TelegramBot {
     return !!result;
   }
 
+  setMyCommands(commands, scope = { type: "all_private_chats" }) {
+    return !!this.callApi('setMyCommands', { commands, scope });
+  }
+
+  editMessageReplyMarkup(chat_id, message_id, reply_markup) {
+    return !!this.callApi('editMessageReplyMarkup', { chat_id, message_id, reply_markup });
+  }
+
+  deleteMessage(chat_id, message_id) {
+    return !!this.callApi('deleteMessage', { chat_id, message_id });
+  }
+
+  getUpdatesApi(payload) {
+    return this.callApi('getUpdates', payload);
+  }
+
+  setWebhook() {
+    var url = this.configManager.getWebhookUrl();
+    var apiKey = this.configManager.getWebhookApiKey();
+    var telegramBotWebHookUrl = `${url}?apiKey=${apiKey}`;
+    Utils.logInfo(`Setting webhook to: ${telegramBotWebHookUrl}`);
+    return !!this.callApi('setWebhook', { url: telegramBotWebHookUrl });
+  }
+
   callApi(method, payload) {
     const options = {
       'method': 'post',
@@ -81,7 +109,7 @@ class TelegramBot {
         Utils.logError(`Telegram API (${method})`, `Error parsing JSON response. Code: ${responseCode}, Response: ${responseBody}, Error: ${e}`);
         return null;
       }
-      
+
       if (responseCode === 200 && jsonResponse.ok) {
         Utils.logInfo(`Telegram API call successful: ${method}`);
         return jsonResponse.result;

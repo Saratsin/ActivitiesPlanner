@@ -4,6 +4,7 @@ class ActivitiesPlanner {
     this.telegramBot = new TelegramBot(this.configManager);
     this.calendarManager = new CalendarManager(this.configManager);
     this.activityScheduler = new ActivityScheduler(this.configManager, this.telegramBot, this.calendarManager);
+    this.privateChatManager = new PrivateChatManager(this.configManager, this.telegramBot, this.calendarManager);
   }
 
   syncCalendars() {
@@ -26,4 +27,25 @@ class ActivitiesPlanner {
   clearAllPollProperties() {
     return this.activityScheduler.clearAllPollProperties();
   }
+
+  setupMenu() {
+    return this.privateChatManager.setupMenu();
+  }
+
+  pullUpdates() {
+    return this.privateChatManager.pollUpdates();
+  }
+
+  handleIncomingWebhook(postData) {
+    this.privateChatManager.processUpdate(postData);
+  }
+
+  setupTelegramWebhook() {
+    return this.telegramBot.setWebhook();
+  }
+
+  getWebhookApiKey() {
+    return this.configManager.getWebhookApiKey();
+  }
+
 }
