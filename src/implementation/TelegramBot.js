@@ -75,6 +75,14 @@ class TelegramBot {
     return this.callApi('getUpdates', payload);
   }
 
+  setWebhook() {
+    var url = this.configManager.getWebhookUrl();
+    var apiKey = this.configManager.getWebhookApiKey();
+    var telegramBotWebHookUrl = `${url}?apiKey=${apiKey}`;
+    Utils.logInfo(`Setting webhook to: ${telegramBotWebHookUrl}`);
+    return !!this.callApi('setWebhook', { url: telegramBotWebHookUrl });
+  }
+
   callApi(method, payload) {
     const options = {
       'method': 'post',

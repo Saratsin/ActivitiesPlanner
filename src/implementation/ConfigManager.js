@@ -43,6 +43,14 @@ class ConfigManager {
     return CONFIG_MESSAGES[messageType];
   }
 
+  getWebhookUrl() {
+    return this.getProperty("TELEGRAM_WEBHOOK_URL");
+  }
+
+  getWebhookApiKey() {
+    return this.getProperty("TELEGRAM_WEBHOOK_API_KEY");
+  }
+
   // TODO Remove it when the migration to telegram bot will be completed
 
   getSourceCalendarId() {

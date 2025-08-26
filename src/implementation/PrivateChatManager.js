@@ -50,43 +50,46 @@ class PrivateChatManager {
 
     processUpdates(updates) {
         updates.forEach(update => {
+            this.processUpdate(update);
+        });
+    }
 
-            try {
-                var updateLogData = JSON.stringify(update)
+    processUpdate(update) {
+        try {
+            var updateLogData = JSON.stringify(update)
 
-                if (update?.message?.chat?.type !== 'private' &&
-                    update?.callback_query?.message?.chat?.type !== 'private') {
+            if (update?.message?.chat?.type !== 'private' &&
+                update?.callback_query?.message?.chat?.type !== 'private') {
 
-                    // Utils.logInfo(`Skipping undefined update ${updateLogData}`);
+                // Utils.logInfo(`Skipping undefined update ${updateLogData}`);
+                return;
+            }
+
+            // TODO remove to mamy logs. Only for testing
+            Utils.logInfo(`Received update ${updateLogData}`);
+
+            if (update.message) {
+                const message = update.message;
+                if (message.text === undefined) {
+                    Utils.logInfo(`Received message without text from ${message.from.username}`);
                     return;
                 }
 
-                // TODO remove to mamy logs. Only for testing
-                Utils.logInfo(`Received update ${updateLogData}`);
-
-                if (update.message) {
-                    const message = update.message;
-                    if (message.text === undefined) {
-                        Utils.logInfo(`Received message without text from ${message.from.username}`);
-                        return;
-                    }
-
-                    Utils.logInfo(`Received message: ${message.text} from ${message.from.username}`);
-                    if (message.text.startsWith('/')) {
-                        this.handleCommand(update);
-                    }
-                    if (message.text.includes('@')) {
-                        this.handleEmailMessage(message);
-                    }
-                } else if (update.callback_query) {
-                    const callbackQuery = update.callback_query;
-                    Utils.logInfo(`Received callback query: ${callbackQuery.data} from ${callbackQuery.from.username}`);
-                    this.handleCallbackQuery(callbackQuery);
+                Utils.logInfo(`Received message: ${message.text} from ${message.from.username}`);
+                if (message.text.startsWith('/')) {
+                    this.handleCommand(update);
                 }
-            } catch (error) {
-                Utils.logError(`Error processing update: Error: ${error}. Update: ${JSON.stringify(update)}`);
+                if (message.text.includes('@')) {
+                    this.handleEmailMessage(message);
+                }
+            } else if (update.callback_query) {
+                const callbackQuery = update.callback_query;
+                Utils.logInfo(`Received callback query: ${callbackQuery.data} from ${callbackQuery.from.username}`);
+                this.handleCallbackQuery(callbackQuery);
             }
-        });
+        } catch (error) {
+            Utils.logError(`Error processing update: Error: ${error}. Update: ${JSON.stringify(update)}`);
+        }
     }
 
     handleEmailMessage(message) {
@@ -252,7 +255,7 @@ class PrivateChatManager {
         for (const activity of Activities) {
             activityButtons.push([{ text: activity, callback_data: ButtonData.fromActivity(parentData, Activities.indexOf(activity)).toString() }]);
         }
-        return activityButtons; 
+        return activityButtons;
     }
 
     getDayTimeSlotsButtons(parentData) {

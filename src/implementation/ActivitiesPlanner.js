@@ -35,4 +35,17 @@ class ActivitiesPlanner {
   pullUpdates() {
     return this.privateChatManager.pollUpdates();
   }
+
+  handleIncomingWebhook(postData) {
+    this.privateChatManager.processUpdate(postData);
+  }
+
+  setupTelegramWebhook() {
+    return this.telegramBot.setWebhook();
+  }
+
+  getWebhookApiKey() {
+    return this.configManager.getWebhookApiKey();
+  }
+
 }
