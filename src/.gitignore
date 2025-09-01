@@ -1,4 +1,10 @@
-.idea
-
-# TODO probably remove it and merge with main .gitignore.
-# Added this in order to make src folder visible
+bin/
+obj/
+/packages/
+riderModule.iml
+/_ReSharper.Caches/
+/.idea/.idea.src.dir/.idea/aws.xml
+/.idea/.idea.src.dir/.idea/indexLayout.xml
+/.idea/.idea.src.dir/.idea/vcs.xml
+/.idea/.idea.src.dir/.idea/httpClient.xml
+/Folder.DotSettings.user
