@@ -6,7 +6,7 @@ const CONFIG_SCRIPT_TIMEZONE = Session.getScriptTimeZone();
 
 const CONFIG_MESSAGES = {
   pollOptions: ['✅', '❌'],
-  bookingSecured: (votes, activity, dateStr) => `✅ ${votes} людей проголосувало за. Бронювання для ${activity}у (${dateStr}) залишається в силі 💪\n\nБронювання спортмайданчика: \nhttps://na-sm-booking.shevchuk.it \n\nКалендар з бронюваннями: \nhttps://na-sm-calendar.shevchuk.it`,
+  bookingSecured: (votes, activity, dateStr) => `✅ ${votes} людей проголосувало за. Бронювання для ${activity}у о ${dateStr} залишається в силі 💪\n\nБронювання спортмайданчика: \nhttps://na-sm-booking.shevchuk.it \n\nКалендар з бронюваннями: \nhttps://na-sm-calendar.shevchuk.it`,
   bookingCancelled: (votes, activity, dateStr) => `❌ Лише ${votes} ${votes === 1 ? 'людина проголосувала' : 'людей проголосувало'} за. Бронювання для ${activity}у скасовано, слоти після ${dateStr} вільні.\n\nБронювання спортмайданчика: \nhttps://na-sm-booking.shevchuk.it \n\nКалендар з бронюваннями: \nhttps://na-sm-calendar.shevchuk.it`
 };
 
