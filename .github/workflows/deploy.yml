@@ -50,10 +50,10 @@ jobs:
 
 
       # Step 4: Push the code from the repo to the Apps Script project
-      - name: Push code to Apps Script
+      - name: "[LEGACY] Push code to Apps Script"
         run: |
           echo '${{ secrets.NEW_ENGLAND_SPORTS_FIELD_CLASPRC_JSON }}' > ~/.clasprc.json;
-          cd src
+          cd legacy
           echo '${{ secrets.NEW_ENGLAND_SPORTS_FIELD_CLASP_JSON }}' > .clasp.json;
           clasp --version
           clasp push -f
