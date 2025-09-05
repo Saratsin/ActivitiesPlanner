@@ -8,11 +8,15 @@ using Telegram.Bot.Types.ReplyMarkups;
 using TelegramBot.Calendar;
 using TelegramBot.Configuration;
 using TelegramBot.Core;
+using TelegramBot.Exceptions;
+using TelegramBot.Extensions;
 
 namespace TelegramBot.Telegram;
 
 public class PrivateChatManager
 {
+    private const string _checkMark = "✅";
+
     private static readonly Regex EmailRegex =
         new(
             @"^(([^<>()[\]\\,;:\s@']+(\.[^<>()[\]\\,;:\s@']\s)*)|.('.+'))@((\[[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\])|(([a-zA-Z\-0-9]+\.)+[a-zA-Z]{2,}))$");
@@ -343,7 +347,7 @@ public class PrivateChatManager
 
         foreach (var row in replyKeyboard.InlineKeyboard)
         foreach (var button in row)
-            if (button.Text.Contains("✅"))
+            if (button.Text.Contains(_checkMark))
             {
                 var selectedButton = JsonConvert.DeserializeObject<ButtonData>(button.CallbackData);
                 selectedTimeSlots.Add($"{selectedButton.Start}-{selectedButton.End}");
@@ -370,7 +374,18 @@ public class PrivateChatManager
             }
 
             var date = DateOnly.Parse(data.Date);
-            await _calendarManager.BookSlots(chat.Username, email, activity, date, timeSlots);
+            
+            try
+            {
+                await _calendarManager.BookSlots(chat.Username, email, activity, date, timeSlots);
+            }
+            catch (CalendarBookingRaceConditionException)
+            {
+                await RebuildTimeSlotsKeyboard(update.Message.Chat.Id, update.Message.MessageId, data.Date, data.Activity);
+                await _telegramBot.SendMessage(chat.Id, $"Нажаль, вже хтось забронював цей час швидше. Спробуйте ще");
+                return;
+            }
+            
             await _telegramBot.SendMessage(
                 chat.Id,
                 $"Ви забронювали на {data.Date} під {activity}: {timeSlotsText} \nДякуємо за бронювання!");
@@ -393,11 +408,11 @@ public class PrivateChatManager
         
         foreach (var row in replyKeyboard.InlineKeyboard)
         foreach (var button in row)
-            if (button.Text.Contains("✅"))
+            if (button.Text.Contains(_checkMark))
             {
                 var selectedButton = JsonConvert.DeserializeObject<EventButtonData>(button.CallbackData);
                 selectedEvents.Add(selectedButton.EventId);
-                selectedButtonsTexts.Add(button.Text.Replace("✅", ""));
+                selectedButtonsTexts.Add(button.Text.Replace(_checkMark, ""));
             }
 
         await _calendarManager.CancelEvents(selectedEvents);
@@ -410,7 +425,8 @@ public class PrivateChatManager
     private async Task DeleteMessage(long chatId, int messageId)
     {
         var chain = _chainManager.GetChain(messageId).Distinct();
-        foreach (var chainMessageId in chain)
+        await chain.Foreach(async chainMessageId =>
+        {
             try
             {
                 await _telegramBot.DeleteMessage(chatId, chainMessageId);
@@ -423,6 +439,7 @@ public class PrivateChatManager
             {
                 _chainManager.Remove(chainMessageId);
             }
+        });
     }
 
     private async Task HandleSelectTime(CallbackQuery update)
@@ -433,10 +450,10 @@ public class PrivateChatManager
         foreach (var button in row)
             if (button.CallbackData == update.Data)
             {
-                if (!button.Text.Contains("✅"))
-                    button.Text = "✅" + button.Text;
+                if (!button.Text.Contains(_checkMark))
+                    button.Text = _checkMark + button.Text;
                 else
-                    button.Text = button.Text.Replace("✅", "");
+                    button.Text = button.Text.Replace(_checkMark, "");
             }
 
         await _telegramBot.EditMessageReplyMarkup(
@@ -450,11 +467,12 @@ public class PrivateChatManager
     {
         var data = JsonConvert.DeserializeObject<ButtonData>(update.Data);
         var date = data.Date;
+        var activity = data.Activity;
         _logger.LogInformation($"Booking date: {date}");
         var createdMessage = await _telegramBot.SendMessage(
             update.Message.Chat.Id,
             $"Ви обрали дату: {date}. Будь ласка, оберіть час.",
-            replyMarkup: new InlineKeyboardMarkup { InlineKeyboard = await GetDayTimeSlotsButtons(data) }
+            replyMarkup: new InlineKeyboardMarkup { InlineKeyboard = await GetDayTimeSlotsButtons(date, activity) }
         );
 
         _chainManager.CreateChain(createdMessage.MessageId, update.Message.MessageId);
@@ -491,31 +509,38 @@ public class PrivateChatManager
                          .ToList();
     }
 
-    private async Task<List<List<InlineKeyboardButton>>> GetDayTimeSlotsButtons(ButtonData parentData)
+    
+    private async Task RebuildTimeSlotsKeyboard(long chatId, int messageId, string dateView, int activity)
     {
-        _logger.LogInformation($"Getting time slots for date: {parentData?.Date}");
+        var inlineKeyboardMarkup = new InlineKeyboardMarkup { InlineKeyboard = await GetDayTimeSlotsButtons(dateView, activity) };
+        await _telegramBot.EditMessageReplyMarkup(chatId, messageId, inlineKeyboardMarkup);
+    }
+    
+    private async Task<List<List<InlineKeyboardButton>>> GetDayTimeSlotsButtons(string dateView, int activity)
+    {
+        _logger.LogInformation($"Getting time slots for date: {dateView}");
 
+        var date = DateTime.Parse(dateView);
         var buttons = new List<List<InlineKeyboardButton>>();
-        var date = DateTime.Parse(parentData.Date);
         var calendar = await _calendarManager.GetCalendar();
         var emptySlots = calendar.GetEmptySlots(DateOnly.FromDateTime(date));
 
         foreach (var emptySlot in emptySlots)
             buttons.Add([
                 new InlineKeyboardButton(emptySlot.ToView(),
-                    GetTimeSlotButtonData(parentData, emptySlot.Start, emptySlot.End).ToJson())
+                    GetTimeSlotButtonData(emptySlot.Start, emptySlot.End).ToJson())
             ]);
 
         buttons.Add([
-            new InlineKeyboardButton { Text = "Підтвердити", CallbackData = new ConfirmButtonData(parentData).ToJson() }
+            new InlineKeyboardButton { Text = "Підтвердити", CallbackData = new ConfirmButtonData(dateView, activity).ToJson() }
         ]);
         buttons.Add([new InlineKeyboardButton { Text = "Скасувати", CallbackData = "cancel" }]);
         return buttons;
     }
 
-    private ButtonData GetTimeSlotButtonData(ButtonData parentData, TimeOnly from, TimeOnly to)
+    private ButtonData GetTimeSlotButtonData(TimeOnly from, TimeOnly to)
     {
-        return ButtonData.FromTime(parentData, from, to);
+        return ButtonData.FromTime(from, to);
     }
 
     public async Task SetupWebhook(string url)

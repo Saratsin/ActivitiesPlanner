@@ -23,7 +23,7 @@ public class ButtonData
             { Type = "SelectDate", Activity = parentData.Activity, Date = date.ToString("yyyy-MM-dd") };
     }
 
-    public static ButtonData FromTime(ButtonData parentData, TimeOnly from, TimeOnly to)
+    public static ButtonData FromTime(TimeOnly from, TimeOnly to)
     {
         return new ButtonData { Type = "SelectTime", Start = from.ToString("HH:mm"), End = to.ToString("HH:mm") };
     }

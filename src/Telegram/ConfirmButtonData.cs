@@ -2,11 +2,11 @@
 
 public class ConfirmButtonData : ButtonData
 {
-    public ConfirmButtonData(ButtonData parentData)
+    public ConfirmButtonData(string date, int activity)
     {
         Type = "Confirm";
-        Date = parentData.Date;
-        Activity = parentData.Activity;
+        Date = date;
+        Activity = activity;
     }
 }
 
