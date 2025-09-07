@@ -18,7 +18,7 @@ public class SecretManagerConfigurationProvider : ConfigurationProvider
 
     public override void Load()
     {
-        var data = new Dictionary<string, string>();
+        var data = new Dictionary<string, string?>();
 
         foreach (var secretName in _secretNames)
             try

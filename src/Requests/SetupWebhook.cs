@@ -1,6 +1,6 @@
 ﻿namespace TelegramBot.Requests;
 
-public class SetupWebhook
+public record SetupWebhook
 {
-    public string Url { get; set; }
+    public required string Url { get; init; }
 }

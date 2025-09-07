@@ -1,7 +1,7 @@
 ﻿namespace TelegramBot.Configuration;
 
-public class TelegramBotSecret
+public record TelegramBotSecret
 {
-    public string Token { get; set; }
-    public string WebhookBotSecret { get; set; }
+    public required string Token { get; init; }
+    public required string WebhookBotSecret { get; init; }
 }

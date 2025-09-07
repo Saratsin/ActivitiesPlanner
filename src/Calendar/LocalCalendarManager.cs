@@ -2,34 +2,31 @@
 using Google.Apis.Calendar.v3;
 using Google.Apis.Services;
 using Google.Apis.Util.Store;
+using TelegramBot.Calendar.Abstract;
 using TelegramBot.Configuration;
 using TelegramBot.Exceptions;
 
 namespace TelegramBot.Calendar;
 
-public class LocalCalendarManager : CalendarManager
+public class LocalCalendarManager(IConfigManager configManager, ILogger<CalendarManager> logger)
+    : CalendarManager(configManager, logger)
 {
-    private UserCredential _authorize;
+    private UserCredential? _credential;
 
-    public LocalCalendarManager(IConfigManager configManager, ILogger<CalendarManager> logger) : base(configManager,
-        logger)
-    {
-    }
-
-    protected override async Task<CalendarService> InternalLogin()
+    protected override async Task<CalendarService> DoAuthorize()
     {
         try
         {
-            var settings = ConfigManager.GetCalendarLoginSetting();
+            var settings = _configManager.GetCalendarAutorizationSettings();
 
             var localServerCodeReceiver = new StaticLocalHostReceiver();
 
-            _authorize = await GoogleWebAuthorizationBroker.AuthorizeAsync(new ClientSecrets
+            _credential = await GoogleWebAuthorizationBroker.AuthorizeAsync(new ClientSecrets
                 {
                     ClientSecret = settings.Secret,
                     ClientId = settings.ClientId
                 },
-                new[] { CalendarService.Scope.Calendar },
+                [CalendarService.Scope.Calendar],
                 settings.User,
                 CancellationToken.None,
                 new FileDataStore("Cache"), localServerCodeReceiver
@@ -37,10 +34,9 @@ public class LocalCalendarManager : CalendarManager
 
             var initializer = new BaseClientService.Initializer
             {
-                HttpClientInitializer = _authorize,
+                HttpClientInitializer = _credential,
                 ApplicationName = "TelegramBot"
             };
-
 
             return new CalendarService(initializer);
         }
@@ -51,26 +47,27 @@ public class LocalCalendarManager : CalendarManager
         }
     }
 
-    protected override async Task Relogin()
+    protected override async Task EnsureAuthorized()
     {
-        if (_authorize == null)
+        if (_credential is null)
         {
-            await Login();
+            await Authorize();
             return;
         }
 
-        if (_authorize.Token.IsStale)
+        if (_credential.Token.IsStale)
             await RefreshToken();
-    }
-
-    public async Task RefreshToken()
-    {
-        await _authorize.RefreshTokenAsync(CancellationToken.None);
     }
 
     public async Task<long?> GetTokenInfo()
     {
-        await Relogin();
-        return _authorize.Token.ExpiresInSeconds;
+        await EnsureAuthorized();
+        return _credential!.Token.ExpiresInSeconds;
     }
+
+    private Task<bool> RefreshToken()
+    {
+        return _credential!.RefreshTokenAsync(CancellationToken.None);
+    }
+
 }

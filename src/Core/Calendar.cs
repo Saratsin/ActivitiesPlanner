@@ -53,12 +53,12 @@ public class Calendar
                   .ToList().ForEach(slot => slot.IsEmpty = false);
     }
 
-    public TimeSlot[] GetEmptySlots(DateOnly dateOnly)
+    public CalendarTimeSlot[] GetEmptySlots(DateOnly dateOnly)
     {
         if (_timeSlots.TryGetValue(dateOnly, out var dailySlots))
             return dailySlots.Where(slot => slot.IsEmpty).ToArray();
 
-        return Array.Empty<TimeSlot>();
+        return [];
     }
 
     public DateOnly[] GetDaysWithEmptySlots()

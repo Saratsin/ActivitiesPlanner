@@ -5,34 +5,26 @@ using Google.Apis.Calendar.v3.Data;
 using TelegramBot.Configuration;
 using TelegramBot.Core;
 
-namespace TelegramBot.Calendar;
+namespace TelegramBot.Calendar.Abstract;
 
-public abstract class CalendarManager
+public abstract class CalendarManager(IConfigManager configManager, ILogger<CalendarManager> logger)
 {
-    private readonly ILogger<CalendarManager> _logger;
-    protected readonly IConfigManager ConfigManager;
-    private CalendarService _calendarService;
+    protected readonly IConfigManager _configManager = configManager;
+    private readonly ILogger<CalendarManager> _logger = logger;
 
-    public CalendarManager(IConfigManager configManager, ILogger<CalendarManager> logger)
+    private CalendarService? _calendarService;
+
+    public async Task Authorize()
     {
-        ConfigManager = configManager;
-        _logger = logger;
-    }
-
-    protected abstract Task<CalendarService> InternalLogin();
-    protected abstract Task Relogin();
-
-    public async Task Login()
-    {
-        _calendarService = await InternalLogin();
+        _calendarService = await DoAuthorize();
     }
 
     public async Task<Core.Calendar> GetCalendar()
     {
-        await Relogin();
+        await EnsureAuthorized();
 
-        var config = ConfigManager.GetCalendarConfig();
-        var eventQuery = _calendarService.Events.List(config.Id);
+        var config = _configManager.GetCalendarConfig();
+        var eventQuery = _calendarService!.Events.List(config.Id)!;
 
         eventQuery.TimeMinDateTimeOffset = DateTimeOffset.Now.Date;
         eventQuery.TimeMaxDateTimeOffset = DateTimeOffset.Now.Date.AddDays(config.BookingTimeRange + 1);
@@ -50,8 +42,9 @@ public abstract class CalendarManager
 
         var calendar = new Core.Calendar(nowDate, nowDate.AddDays(config.BookingTimeRange), config);
         foreach (var @event in allEvents)
-            calendar.PushEvent(@event.Start.DateTimeDateTimeOffset.Value.DateTime,
-                @event.End.DateTimeDateTimeOffset.Value.DateTime);
+            calendar.PushEvent(
+                @event.Start.DateTimeDateTimeOffset!.Value.DateTime,
+                @event.End.DateTimeDateTimeOffset!.Value.DateTime);
 
         return calendar;
     }
@@ -60,13 +53,13 @@ public abstract class CalendarManager
     /// <summary>
     ///     TODO Handle race condition situations
     /// </summary>
-    public async Task BookSlots(string username, string email, string activity, DateOnly date, List<TimeSlot> timeSlots)
+    public async Task BookSlots(string username, string email, Activity activity, DateOnly date, List<TimeSlot> timeSlots)
     {
-        await Relogin();
+        await EnsureAuthorized();
 
-        var config = ConfigManager.GetCalendarConfig();
+        var config = _configManager.GetCalendarConfig();
         var isEmailExists = string.IsNullOrWhiteSpace(email);
-        var events = _calendarService.Events;
+        var events = _calendarService!.Events;
         foreach (var timeSlot in timeSlots)
         {
             var insertRequest = events.Insert(new Event
@@ -103,7 +96,7 @@ public abstract class CalendarManager
                 Transparency = "opaque",
                 Visibility = "public",
                 Reminders = new Event.RemindersData { UseDefault = true },
-                ColorId = GetColorFromActivity(activity),
+                ColorId = ((int)activity).ToString(),
                 Location = "Нова Англія, вулиця Михайла Максимовича, 24, Київ, Україна, 03066"
             }, config.Id);
 
@@ -112,20 +105,11 @@ public abstract class CalendarManager
         }
     }
 
-    private string GetColorFromActivity(string activity)
-    {
-        var indexOf = Array.IndexOf(Activities.All, activity);
-        if (indexOf < 0)
-            indexOf = 1;
-
-        return indexOf.ToString();
-    }
-
     public async IAsyncEnumerable<UserTimeSlot> GetUserBookingAsync(string userName)
     {
-        await Relogin();
-        var config = ConfigManager.GetCalendarConfig();
-        var eventQuery = _calendarService.Events.List(config.Id);
+        await EnsureAuthorized();
+        var config = _configManager.GetCalendarConfig();
+        var eventQuery = _calendarService!.Events.List(config.Id);
 
         eventQuery.TimeMinDateTimeOffset = DateTimeOffset.Now.Date;
         eventQuery.TimeMaxDateTimeOffset = DateTimeOffset.Now.Date.AddDays(7);
@@ -140,23 +124,25 @@ public abstract class CalendarManager
             allEvents.AddRange(events.Items);
         }
 
-        foreach (var @event in allEvents.Where(@event => @event.Description?.Contains(userName) == true))
-            yield return new UserTimeSlot(@event.Id, @event.Start.DateTimeDateTimeOffset.Value,
-                @event.End.DateTimeDateTimeOffset.Value, @event.Summary);
+        foreach (var @event in allEvents.Where(@event => @event.Description?.Contains(userName) is true))
+            yield return new UserTimeSlot(
+                @event.Id,
+                @event.Start.DateTimeDateTimeOffset!.Value,
+                @event.End.DateTimeDateTimeOffset!.Value,
+                @event.Summary);
     }
 
     public async Task CancelEvents(List<string> selectedEvents)
     {
-        await Relogin();
+        await EnsureAuthorized();
 
         foreach (var selectedEvent in selectedEvents)
             try
             {
-                var config = ConfigManager.GetCalendarConfig();
-                await _calendarService.Events.Delete(config.Id, selectedEvent).ExecuteAsync();
+                var config = _configManager.GetCalendarConfig();
+                await _calendarService!.Events.Delete(config.Id, selectedEvent).ExecuteAsync();
             }
-            catch (GoogleApiException ex) when (ex.HttpStatusCode == HttpStatusCode.NotFound ||
-                                                ex.HttpStatusCode == HttpStatusCode.Gone)
+            catch (GoogleApiException ex) when (ex.HttpStatusCode is HttpStatusCode.NotFound or HttpStatusCode.Gone)
             {
             }
             catch (Exception e)
@@ -165,4 +151,8 @@ public abstract class CalendarManager
                 throw;
             }
     }
+
+    protected abstract Task<CalendarService> DoAuthorize();
+
+    protected abstract Task EnsureAuthorized();
 }

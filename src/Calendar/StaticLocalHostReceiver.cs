@@ -9,16 +9,18 @@ using Google.Apis.Auth.OAuth2.Responses;
 
 namespace TelegramBot.Calendar;
 
-public class StaticLocalHostReceiver : ICodeReceiver
+public sealed class StaticLocalHostReceiver : ICodeReceiver
 {
     /// <summary>Close HTML tag to return the browser so it will close itself.</summary>
-    internal const string DefaultClosePageResponse =
-        @"<html>
-  <head><title>OAuth 2.0 Authentication Token Received</title></head>
-  <body>
-    Received verification code. You may now close this window. SUUUUUUPER
-  </body>
-</html>";
+    private const string DefaultClosePageResponse =
+        """
+        <html>
+          <head><title>OAuth 2.0 Authentication Token Received</title></head>
+          <body>
+            Received verification code. You may now close this window. SUUUUUUPER
+          </body>
+        </html>
+        """;
 
     public async Task<AuthorizationCodeResponseUrl> ReceiveCodeAsync(AuthorizationCodeRequestUrl url,
         CancellationToken taskCancellationToken)
@@ -64,7 +66,7 @@ public class StaticLocalHostReceiver : ICodeReceiver
         HttpListenerContext context;
         // Set up cancellation. HttpListener.GetContextAsync() doesn't accept a cancellation token,
         // the HttpListener needs to be stopped which immediately aborts the GetContextAsync() call.
-        using (ct.Register(listener.Stop))
+        await using (ct.Register(listener.Stop))
         {
             // Wait to get the authorization code response.
             try
@@ -81,24 +83,25 @@ public class StaticLocalHostReceiver : ICodeReceiver
             //CallbackUriChooser.Default.ReportSuccess(_callbackUriTemplate);
         }
 
-        var coll = context.Request.QueryString;
+        var responseUrlQueryStringDictionary = context.Request.QueryString
+            .AllKeys.ToDictionary(key => key!, key => context.Request.QueryString[key]!);
 
         // Write a "close" response.
         var bytes = Encoding.UTF8.GetBytes(DefaultClosePageResponse);
         context.Response.ContentLength64 = bytes.Length;
         context.Response.SendChunked = false;
         context.Response.KeepAlive = false;
-        var output = context.Response.OutputStream;
-        await output.WriteAsync(bytes, 0, bytes.Length).ConfigureAwait(false);
-        await output.FlushAsync().ConfigureAwait(false);
-        output.Close();
+        var outputStream = context.Response.OutputStream;
+        await outputStream.WriteAsync(bytes, ct).ConfigureAwait(false);
+        await outputStream.FlushAsync(ct).ConfigureAwait(false);
+        outputStream.Close();
         context.Response.Close();
 
         // Create a new response URL with a dictionary that contains all the response query parameters.
-        return new AuthorizationCodeResponseUrl(coll.AllKeys.ToDictionary(k => k, k => coll[k]));
+        return new AuthorizationCodeResponseUrl(responseUrlQueryStringDictionary);
     }
 
-    protected virtual bool OpenBrowser(string url)
+    private bool OpenBrowser(string url)
     {
         // See https://github.com/dotnet/corefx/issues/10361
         // This is best-effort only, but should work most of the time.

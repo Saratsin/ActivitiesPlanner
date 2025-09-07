@@ -1,18 +1,13 @@
 ﻿using TelegramBot.Calendar;
+using TelegramBot.Calendar.Abstract;
 using TelegramBot.Configuration;
 
 namespace TelegramBot.IoC;
 
-public class CalendarManagerFactory
+public class CalendarManagerFactory(IConfigManager configManager, ILogger<CalendarManager> logger)
 {
-    private readonly IConfigManager _configManager;
-    private readonly ILogger<CalendarManager> _logger;
-
-    public CalendarManagerFactory(IConfigManager configManager, ILogger<CalendarManager> logger)
-    {
-        _configManager = configManager;
-        _logger = logger;
-    }
+    private readonly IConfigManager _configManager = configManager;
+    private readonly ILogger<CalendarManager> _logger = logger;
 
     public CalendarManager Create()
     {
