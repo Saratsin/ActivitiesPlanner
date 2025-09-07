@@ -12,11 +12,12 @@ public static class Modules
         webApplicationBuilder.Services.AddSingleton<CalendarManagerFactory>();
         webApplicationBuilder.Services.AddSingleton(provider =>
         {
-            var factory = provider.GetService<CalendarManagerFactory>();
+            var factory = provider.GetService<CalendarManagerFactory>()!;
             return factory.Create();
         });
 
-        webApplicationBuilder.Services.AddHttpClient("TelegramBot",
+        webApplicationBuilder.Services.AddHttpClient(
+            "TelegramBot",
             client => client.BaseAddress = new Uri("https://api.telegram.org/"));
         webApplicationBuilder.Services.AddTransient<ITelegramBotClient, TelegramBotClient>(provider =>
         {

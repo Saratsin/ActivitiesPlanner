@@ -27,5 +27,16 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 
+bin/
+obj/
+packages/
+riderModule.iml
+_ReSharper.Caches/
+
 .clasp.json
 beta
+
+*.DotSettings
+*.DotSettings.user
+
+.idea

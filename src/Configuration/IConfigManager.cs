@@ -5,9 +5,9 @@ namespace TelegramBot.Configuration;
 
 public interface IConfigManager
 {
-    string GetProperty(string key);
+    string? GetProperty(string key);
     void SetProperty(string key, string value);
-    CalendarApiSettings GetCalendarLoginSetting();
+    CalendarApiSettings GetCalendarAutorizationSettings();
     void SetCalendarLogin(CalendarApiSettings calendarApiSettings);
     string GetBotToken();
     string GetTelegramWebhookSecret();
@@ -28,18 +28,21 @@ public class ConfigManager : IConfigManager
         _configuration = configuration;
     }
 
-    public string GetProperty(string key)
+    public string? GetProperty(string key)
     {
         _cache.TryGetValue(key, out var value);
         return value;
     }
 
-    public void SetProperty(string key, string value) => _cache.AddOrUpdate(key, value, (k, v) => value);
+    public void SetProperty(string key, string value)
+    {
+        _cache.AddOrUpdate(key, value, (_, _) => value);
+    }
 
-    public CalendarApiSettings GetCalendarLoginSetting()
+    public CalendarApiSettings GetCalendarAutorizationSettings()
     {
         var configurationSection = _configuration.GetSection("CalendarApiSecret");
-        var calendarLoginSetting = configurationSection.Get<CalendarApiSettings>();
+        var calendarLoginSetting = configurationSection.Get<CalendarApiSettings>()!;
         return calendarLoginSetting;
     }
 
@@ -52,24 +55,24 @@ public class ConfigManager : IConfigManager
     }
 
     public string GetBotToken() => _configuration.GetSection("TelegramBotSecret")
-                                                 .Get<TelegramBotSecret>()
+                                                 .Get<TelegramBotSecret>()!
                                                  .Token;
 
     public string GetTelegramWebhookSecret() => _configuration.GetSection("TelegramBotSecret")
-                                                              .Get<TelegramBotSecret>()
+                                                              .Get<TelegramBotSecret>()!
                                                               .WebhookBotSecret;
 
     public CalendarSettings GetCalendarConfig() => _configuration.GetSection("Calendar")
-                                                                 .Get<CalendarSettings>();
+                                                                 .Get<CalendarSettings>()!;
 
     public string[] GetAdminsChats() => _configuration.GetSection("AdminsChats")
-                                                      .Get<string[]>();
+                                                      .Get<string[]>()!;
 
     public bool IsCloudRun() => _configuration.GetValue<bool>("IsCloudRun");
 
     public ChatId GetMainChatId() => _configuration.GetValue<long>("MainChatId");
 
-    public string GetBotName() => _configuration.GetValue<string>("BotName");
+    public string GetBotName() => _configuration.GetValue<string>("BotName")!;
 
     public void SetupTelegramWebhookSecret(string token) => _configuration["TelegramBotSecret:Token"] = token;
 }

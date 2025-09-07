@@ -1,27 +1,22 @@
 ﻿namespace TelegramBot.Telegram;
 
-public class ConfirmButtonData : ButtonData
+public record ConfirmButtonData : ButtonData
 {
     public ConfirmButtonData(ButtonData parentData)
+        : base("Confirm")
     {
-        Type = "Confirm";
         Date = parentData.Date;
         Activity = parentData.Activity;
     }
 }
 
-public class ConfirmCancelButtonData : ButtonData
-{
-    public ConfirmCancelButtonData()
-    {
-        Type = "ConfirmCancel";
-    }
-}
+public record ConfirmCancelButtonData() : ButtonData("ConfirmCancel");
 
-public class EventButtonData : ButtonData
+public record EventButtonData : ButtonData
 {
-    public static EventButtonData FromEventId(string eventId)
+    public EventButtonData(string eventId)
+        : base("SelectEvent")
     {
-        return new EventButtonData { Type = "SelectEvent", EventId = eventId };
+        EventId = eventId;
     }
 }

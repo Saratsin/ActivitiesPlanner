@@ -1,31 +1,33 @@
 ﻿using Newtonsoft.Json;
+using TelegramBot.Core;
 
 namespace TelegramBot.Telegram;
 
-public class ButtonData
+public record ButtonData(string type)
 {
-    public string Type { get; set; }
-    public int Activity { get; set; }
-    public string Date { get; set; }
-    public string Start { get; set; }
-    public string End { get; set; }
+    public string Type { get; } = type;
+    public int Activity { get; init; }
+    public string? Date { get; init; }
+    public string? Start { get; init; }
+    public string? End { get; init; }
+    public string? EventId { get; init; }
 
-    public string EventId { get; set; }
-
-    public static ButtonData FromActivity(ButtonData parentData, int activity)
+    public static ButtonData FromActivity(Activity activity)
     {
-        return new ButtonData { Type = "SelectActivity", Activity = activity };
+        return new ButtonData("SelectActivity") { Activity = (int)activity };
     }
 
     public static ButtonData FromDate(ButtonData parentData, DateOnly date)
     {
-        return new ButtonData
-            { Type = "SelectDate", Activity = parentData.Activity, Date = date.ToString("yyyy-MM-dd") };
+        return new ButtonData("SelectDate")
+        {
+            Activity = parentData.Activity, Date = date.ToString("yyyy-MM-dd")
+        };
     }
 
-    public static ButtonData FromTime(ButtonData parentData, TimeOnly from, TimeOnly to)
+    public static ButtonData FromTime(TimeOnly from, TimeOnly to)
     {
-        return new ButtonData { Type = "SelectTime", Start = from.ToString("HH:mm"), End = to.ToString("HH:mm") };
+        return new ButtonData("SelectTime") { Start = from.ToString("HH:mm"), End = to.ToString("HH:mm") };
     }
 
     public string ToJson()

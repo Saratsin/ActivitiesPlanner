@@ -1,8 +1,8 @@
 ﻿namespace TelegramBot.Configuration;
 
-public class CalendarApiSettings
+public record CalendarApiSettings
 {
-    public string User { get; set; }
-    public string ClientId { get; set; }
-    public string Secret { get; set; }
+    public required string User { get; init; }
+    public required string ClientId { get; init; }
+    public required string Secret { get; init; }
 }

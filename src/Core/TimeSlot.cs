@@ -2,10 +2,10 @@
 
 public class TimeSlot
 {
-    public TimeOnly Start { get; set; }
-    public TimeOnly End { get; set; }
+    public required TimeOnly Start { get; init; }
+    public required TimeOnly End { get; init; }
 
-    public string ToView()
+    public override string ToString()
     {
         return $"{Start:HH:mm} - {End:HH:mm}";
     }

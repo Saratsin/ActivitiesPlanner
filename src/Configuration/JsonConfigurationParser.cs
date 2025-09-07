@@ -12,12 +12,12 @@ internal sealed class JsonConfigurationParser
     {
     }
 
-    public static IDictionary<string, string> Parse(string input)
+    public static IDictionary<string, string?> Parse(string input)
     {
         return new JsonConfigurationParser().ParseString(input);
     }
 
-    private Dictionary<string, string> ParseString(string jsonData)
+    private Dictionary<string, string?> ParseString(string jsonData)
     {
         var jsonDocumentOptions = new JsonDocumentOptions
         {

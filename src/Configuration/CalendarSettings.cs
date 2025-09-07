@@ -1,12 +1,12 @@
 ﻿namespace TelegramBot.Configuration;
 
-public class CalendarSettings
+public record CalendarSettings
 {
-    public string Id { get; set; }
-    public string UsualStartTime { get; set; }
-    public string UsualEndTime { get; set; }
-    public string WeekendStartTime { get; set; }
-    public string WeekendEndTime { get; set; }
-    public int TimeSlotMinutes { get; set; }
-    public int BookingTimeRange { get; set; }
+    public required string Id { get; init; }
+    public required string UsualStartTime { get; init; }
+    public required string UsualEndTime { get; init; }
+    public required string WeekendStartTime { get; init; }
+    public required string WeekendEndTime { get; init; }
+    public required int TimeSlotMinutes { get; init; }
+    public required int BookingTimeRange { get; init; }
 }

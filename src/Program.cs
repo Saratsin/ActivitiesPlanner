@@ -1,5 +1,6 @@
 using Telegram.Bot.Types;
 using TelegramBot.Calendar;
+using TelegramBot.Calendar.Abstract;
 using TelegramBot.Configuration;
 using TelegramBot.IoC;
 using TelegramBot.Requests;
@@ -74,7 +75,7 @@ app.MapPost("telegram/webhook", async (Update update, PrivateChatManager manager
 
 app.MapPost("/calendar/login", async (CalendarManager manager) =>
 {
-    await manager.Login();
+    await manager.Authorize();
 
     return Results.Ok("200 Ok");
 });

@@ -1,6 +1,7 @@
 ﻿using Google.Apis.Auth.OAuth2;
 using Google.Apis.Calendar.v3;
 using Google.Apis.Services;
+using TelegramBot.Calendar.Abstract;
 using TelegramBot.Configuration;
 using TelegramBot.Exceptions;
 
@@ -15,7 +16,7 @@ public class CloudCalendarManager : CalendarManager
     {
     }
 
-    protected override async Task<CalendarService> InternalLogin()
+    protected override async Task<CalendarService> DoAuthorize()
     {
         try
         {
@@ -38,9 +39,9 @@ public class CloudCalendarManager : CalendarManager
         }
     }
 
-    protected override async Task Relogin()
+    protected override async Task EnsureAuthorized()
     {
         if (!_isInitialized)
-            await Login();
+            await Authorize();
     }
 }
