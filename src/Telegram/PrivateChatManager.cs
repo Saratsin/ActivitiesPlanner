@@ -8,6 +8,7 @@ using Telegram.Bot.Types.ReplyMarkups;
 using TelegramBot.Calendar;
 using TelegramBot.Configuration;
 using TelegramBot.Core;
+using TelegramBot.DB;
 using TelegramBot.Exceptions;
 using TelegramBot.Extensions;
 
@@ -28,6 +29,7 @@ public class PrivateChatManager
     private readonly IMemoryCache _memoryCache;
     private readonly ITelegramBotClient _telegramBot;
     private readonly MainGroupChat _mainGroupChat;
+    private readonly UsersStore _userStore;
     private int _pullOffset;
 
     public PrivateChatManager(
@@ -36,7 +38,8 @@ public class PrivateChatManager
         ITelegramBotClient telegramBot,
         MainGroupChat mainGroupChat,
         ILogger<PrivateChatManager> logger,
-        IMemoryCache memoryCache)
+        IMemoryCache memoryCache, 
+        UsersStore userStore)
     {
         _configManager = configManager;
         _calendarManager = calendarManager;
@@ -44,6 +47,7 @@ public class PrivateChatManager
         _mainGroupChat = mainGroupChat;
         _logger = logger;
         _memoryCache = memoryCache;
+        _userStore = userStore;
         _chainManager = new MessageChainManager(_memoryCache);
         int.TryParse(_configManager.GetProperty("PULL_OFFSET"), out _pullOffset);
     }
@@ -96,8 +100,7 @@ public class PrivateChatManager
             var chatType = message?.Chat?.Type;
             if (chatType != ChatType.Private) return;
 
-            // TODO Add validations for user update 
-            if (!await ValidateUserAsync(message)) 
+            if (!await ValidateUserAsync(message))
                 return;
 
             _logger.LogInformation($"Received update {updateLogData}");
@@ -156,9 +159,17 @@ public class PrivateChatManager
             return false;
         }
         
-        // 3) TODO Banned
+        // TODO add ban users functionality
+        // TODO store in DB with date for unban
         
-        
+        // 3) Banned
+        var bannedUsers = _configManager.GetProperty("BANNED_USERS")?.Split(',') ?? Array.Empty<string>();
+        if (bannedUsers.Contains(message.From.Id.ToString()) || (message.From.Username != null && bannedUsers.Contains(message.From.Username)))
+        {
+            await _telegramBot.SendMessage(message.Chat.Id, "Ви заблоковані в цій системі.");
+            return false;
+        }
+
         return true;
     }
 
@@ -209,7 +220,10 @@ public class PrivateChatManager
                 _logger.LogInformation("Handling help command");
                 createdMessage = await _telegramBot.SendMessage(
                     update.Message.Chat.Id,
-                    "Довідка: використовуйте /book для бронювання.\nДля реєстрації/оновлення емейла використовуйте /register."
+                    "Довідка: \n" +
+                    "/book для бронювання. \n" +
+                    "/cancel для скасування бронювання. \n" +
+                    "/register для реєстрації/оновлення емейла використовуйте \n"
                 );
                 break;
             case "/register":
@@ -252,6 +266,15 @@ public class PrivateChatManager
             await _telegramBot.PinChatMessage(message.Chat.Id, message.MessageId);
             await _telegramBot.SendMessage(message.Chat.Id,
                 $"Ваш емейл {message.Text} успішно зареєстровано. Дякуємо!");
+
+            try
+            {
+                await _userStore.SaveEmailAsync(message.From.Id, message.From.Username, message.Text);
+            }
+            catch (Exception e)
+            {
+                Console.WriteLine(e);
+            }
         }
     }
 
