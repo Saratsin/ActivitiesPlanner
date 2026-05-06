@@ -6,6 +6,7 @@ using Telegram.Bot.Types.ReplyMarkups;
 using TelegramBot.Calendar;
 using TelegramBot.Configuration;
 using TelegramBot.Core;
+using TelegramBot.DB;
 using TelegramBot.Exceptions;
 using TelegramBot.Telegram;
 using TelegramBot.Telegram.Handlers;
@@ -23,6 +24,7 @@ public class ConfirmBookingCallbackHandler : ICallbackQueryHandler
     private readonly BookingKeyboardBuilder _keyboardBuilder;
     private readonly ILogger<ConfirmBookingCallbackHandler> _logger;
     private readonly IConfigManager _configManager;
+    private readonly UsersStore _userStore;
 
     public ConfirmBookingCallbackHandler(
         ITelegramBotClient bot,
@@ -31,7 +33,7 @@ public class ConfirmBookingCallbackHandler : ICallbackQueryHandler
         MessageDeleter messageDeleter,
         BookingKeyboardBuilder keyboardBuilder,
         IConfigManager configManager, 
-        ILogger<ConfirmBookingCallbackHandler> logger)
+        ILogger<ConfirmBookingCallbackHandler> logger, UsersStore userStore)
     {
         _bot = bot;
         _calendarManager = calendarManager;
@@ -39,6 +41,7 @@ public class ConfirmBookingCallbackHandler : ICallbackQueryHandler
         _messageDeleter = messageDeleter;
         _keyboardBuilder = keyboardBuilder;
         _logger = logger;
+        _userStore = userStore;
         _configManager = configManager;
     }
 
@@ -98,7 +101,10 @@ public class ConfirmBookingCallbackHandler : ICallbackQueryHandler
                 var chatInfo = await _bot.GetChat(chat.Id);
                 email = chatInfo.PinnedMessage?.Text;
             }
-            // TODO read from DB if exists
+            else
+            {
+                email = await _userStore.GetEmailAsync(callbackQuery.From.Id); 
+            }
             
             var date = DateOnly.Parse(data.Date);
 
