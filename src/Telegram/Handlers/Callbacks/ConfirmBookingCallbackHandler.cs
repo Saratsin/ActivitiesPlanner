@@ -8,8 +8,6 @@ using TelegramBot.Configuration;
 using TelegramBot.Core;
 using TelegramBot.DB;
 using TelegramBot.Exceptions;
-using TelegramBot.Telegram;
-using TelegramBot.Telegram.Handlers;
 
 namespace TelegramBot.Telegram.Handlers.Callbacks;
 

@@ -3,8 +3,6 @@ using Telegram.Bot.Types;
 using Telegram.Bot.Types.ReplyMarkups;
 using TelegramBot.Calendar;
 using TelegramBot.Configuration;
-using TelegramBot.Telegram;
-using TelegramBot.Telegram.Handlers;
 
 namespace TelegramBot.Telegram.Handlers.Commands;
 

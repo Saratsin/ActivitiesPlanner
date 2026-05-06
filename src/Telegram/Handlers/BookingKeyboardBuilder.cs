@@ -1,7 +1,6 @@
 using Telegram.Bot.Types.ReplyMarkups;
 using TelegramBot.Calendar;
 using TelegramBot.Core;
-using TelegramBot.Telegram;
 
 namespace TelegramBot.Telegram.Handlers;
 

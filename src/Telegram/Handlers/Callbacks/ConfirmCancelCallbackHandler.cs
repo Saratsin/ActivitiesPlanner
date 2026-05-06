@@ -1,8 +1,6 @@
 using Newtonsoft.Json;
 using Telegram.Bot.Types;
 using TelegramBot.Calendar;
-using TelegramBot.Telegram;
-using TelegramBot.Telegram.Handlers;
 
 namespace TelegramBot.Telegram.Handlers.Callbacks;
 
