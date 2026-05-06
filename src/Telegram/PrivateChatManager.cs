@@ -4,11 +4,9 @@ using Newtonsoft.Json;
 using Telegram.Bot;
 using Telegram.Bot.Types;
 using Telegram.Bot.Types.Enums;
-using TelegramBot.Calendar;
 using TelegramBot.Configuration;
 using TelegramBot.DB;
 using TelegramBot.Telegram.Handlers;
-using TelegramBot.Telegram.Handlers.Callbacks;
 using TelegramBot.Telegram.Handlers.Commands;
 
 namespace TelegramBot.Telegram;
@@ -30,14 +28,15 @@ public class PrivateChatManager
     private readonly IReadOnlyList<ICallbackQueryHandler> _callbackHandlers;
     private int _pullOffset;
 
-    public PrivateChatManager(
-        IConfigManager configManager,
-        CalendarManager calendarManager,
+    public PrivateChatManager(IConfigManager configManager,
         ITelegramBotClient telegramBot,
         MainGroupChat mainGroupChat,
         ILoggerFactory loggerFactory,
         IMemoryCache memoryCache,
-        UsersStore userStore)
+        UsersStore userStore,
+        IEnumerable<ICommandHandler> commandHandlers, 
+        UnknownCommandHandler unknownCommandHandler,
+        IEnumerable<ICallbackQueryHandler> callbackQueryHandlers)
     {
         _configManager = configManager;
         _telegramBot = telegramBot;
@@ -47,28 +46,9 @@ public class PrivateChatManager
         _userStore = userStore;
         int.TryParse(_configManager.GetProperty("PULL_OFFSET"), out _pullOffset);
 
-        var chainManager = new MessageChainManager(memoryCache);
-        var keyboardBuilder = new BookingKeyboardBuilder(calendarManager);
-        var messageDeleter = new MessageDeleter(telegramBot, chainManager, loggerFactory.CreateLogger<MessageDeleter>());
-
-        _commandHandlers = new List<ICommandHandler>
-        {
-            new BookCommandHandler(telegramBot, chainManager, keyboardBuilder, calendarManager,configManager,loggerFactory.CreateLogger<BookCommandHandler>()),
-            new HelpCommandHandler(telegramBot, chainManager, loggerFactory.CreateLogger<HelpCommandHandler>()),
-            new RegisterCommandHandler(telegramBot, chainManager, loggerFactory.CreateLogger<RegisterCommandHandler>()),
-            new CancelCommandHandler(telegramBot, calendarManager, chainManager, loggerFactory.CreateLogger<CancelCommandHandler>()),
-        };
-        _unknownCommandHandler = new UnknownCommandHandler(telegramBot, chainManager, loggerFactory.CreateLogger<UnknownCommandHandler>());
-
-        _callbackHandlers = new List<ICallbackQueryHandler>
-        {
-            new CancelCallbackHandler(messageDeleter),
-            new SelectActivityCallbackHandler(telegramBot, chainManager, keyboardBuilder),
-            new SelectDateCallbackHandler(telegramBot, chainManager, keyboardBuilder, loggerFactory.CreateLogger<SelectDateCallbackHandler>()),
-            new SelectTimeCallbackHandler(telegramBot),
-            new ConfirmBookingCallbackHandler(telegramBot, calendarManager, memoryCache, messageDeleter, keyboardBuilder,configManager, loggerFactory.CreateLogger<ConfirmBookingCallbackHandler>()),
-            new ConfirmCancelCallbackHandler(calendarManager, mainGroupChat, messageDeleter, loggerFactory.CreateLogger<ConfirmCancelCallbackHandler>()),
-        };
+        _commandHandlers = commandHandlers.ToArray();
+        _unknownCommandHandler = unknownCommandHandler;
+        _callbackHandlers = callbackQueryHandlers.ToArray();
     }
 
     public async Task SetupMenu()
