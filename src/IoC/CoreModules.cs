@@ -1,11 +1,12 @@
 ﻿using Telegram.Bot;
 using TelegramBot.Configuration;
 using TelegramBot.DB;
+using TelegramBot.IoC.Modules;
 using TelegramBot.Telegram;
 
 namespace TelegramBot.IoC;
 
-public static class Modules
+public static class CoreModules
 {
     public static WebApplicationBuilder RegisterCoreServices(this WebApplicationBuilder webApplicationBuilder)
     {
@@ -27,9 +28,10 @@ public static class Modules
             return client;
         });
 
-        webApplicationBuilder.Services.AddTransient<PrivateChatManager>();
+        
         webApplicationBuilder.Services.AddTransient<MainGroupChat>();
         webApplicationBuilder.Services.AddSingleton<UsersStore>();
+        webApplicationBuilder.Services.AddPrivateChatModule();
 
         return webApplicationBuilder;
     }

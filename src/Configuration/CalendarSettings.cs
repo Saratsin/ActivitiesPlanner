@@ -9,4 +9,6 @@ public class CalendarSettings
     public string WeekendEndTime { get; set; }
     public int TimeSlotMinutes { get; set; }
     public int BookingTimeRange { get; set; }
+
+    public TimeSpan MaxAvailableTime { get; set; } = new TimeSpan(2, 0, 0);
 }

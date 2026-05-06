@@ -1,35 +1,33 @@
-﻿using System.Text.RegularExpressions;
+using System.Text.RegularExpressions;
 using Microsoft.Extensions.Caching.Memory;
 using Newtonsoft.Json;
 using Telegram.Bot;
 using Telegram.Bot.Types;
 using Telegram.Bot.Types.Enums;
-using Telegram.Bot.Types.ReplyMarkups;
 using TelegramBot.Calendar;
 using TelegramBot.Configuration;
-using TelegramBot.Core;
 using TelegramBot.DB;
-using TelegramBot.Exceptions;
-using TelegramBot.Extensions;
+using TelegramBot.Telegram.Handlers;
+using TelegramBot.Telegram.Handlers.Callbacks;
+using TelegramBot.Telegram.Handlers.Commands;
 
 namespace TelegramBot.Telegram;
 
 public class PrivateChatManager
 {
-    private const string _checkMark = "✅";
-
     private static readonly Regex EmailRegex =
         new(
             @"^(([^<>()[\]\\,;:\s@']+(\.[^<>()[\]\\,;:\s@']\s)*)|.('.+'))@((\[[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\])|(([a-zA-Z\-0-9]+\.)+[a-zA-Z]{2,}))$");
 
-    private readonly CalendarManager _calendarManager; // CalendarManager is a mock class
-    private readonly MessageChainManager _chainManager;
     private readonly IConfigManager _configManager;
-    private readonly ILogger<PrivateChatManager> _logger;
-    private readonly IMemoryCache _memoryCache;
     private readonly ITelegramBotClient _telegramBot;
     private readonly MainGroupChat _mainGroupChat;
+    private readonly ILogger<PrivateChatManager> _logger;
+    private readonly IMemoryCache _memoryCache;
     private readonly UsersStore _userStore;
+    private readonly IReadOnlyList<ICommandHandler> _commandHandlers;
+    private readonly ICommandHandler _unknownCommandHandler;
+    private readonly IReadOnlyList<ICallbackQueryHandler> _callbackHandlers;
     private int _pullOffset;
 
     public PrivateChatManager(
@@ -37,19 +35,40 @@ public class PrivateChatManager
         CalendarManager calendarManager,
         ITelegramBotClient telegramBot,
         MainGroupChat mainGroupChat,
-        ILogger<PrivateChatManager> logger,
-        IMemoryCache memoryCache, 
+        ILoggerFactory loggerFactory,
+        IMemoryCache memoryCache,
         UsersStore userStore)
     {
         _configManager = configManager;
-        _calendarManager = calendarManager;
         _telegramBot = telegramBot;
         _mainGroupChat = mainGroupChat;
-        _logger = logger;
+        _logger = loggerFactory.CreateLogger<PrivateChatManager>();
         _memoryCache = memoryCache;
         _userStore = userStore;
-        _chainManager = new MessageChainManager(_memoryCache);
         int.TryParse(_configManager.GetProperty("PULL_OFFSET"), out _pullOffset);
+
+        var chainManager = new MessageChainManager(memoryCache);
+        var keyboardBuilder = new BookingKeyboardBuilder(calendarManager);
+        var messageDeleter = new MessageDeleter(telegramBot, chainManager, loggerFactory.CreateLogger<MessageDeleter>());
+
+        _commandHandlers = new List<ICommandHandler>
+        {
+            new BookCommandHandler(telegramBot, chainManager, keyboardBuilder, calendarManager,configManager,loggerFactory.CreateLogger<BookCommandHandler>()),
+            new HelpCommandHandler(telegramBot, chainManager, loggerFactory.CreateLogger<HelpCommandHandler>()),
+            new RegisterCommandHandler(telegramBot, chainManager, loggerFactory.CreateLogger<RegisterCommandHandler>()),
+            new CancelCommandHandler(telegramBot, calendarManager, chainManager, loggerFactory.CreateLogger<CancelCommandHandler>()),
+        };
+        _unknownCommandHandler = new UnknownCommandHandler(telegramBot, chainManager, loggerFactory.CreateLogger<UnknownCommandHandler>());
+
+        _callbackHandlers = new List<ICallbackQueryHandler>
+        {
+            new CancelCallbackHandler(messageDeleter),
+            new SelectActivityCallbackHandler(telegramBot, chainManager, keyboardBuilder),
+            new SelectDateCallbackHandler(telegramBot, chainManager, keyboardBuilder, loggerFactory.CreateLogger<SelectDateCallbackHandler>()),
+            new SelectTimeCallbackHandler(telegramBot),
+            new ConfirmBookingCallbackHandler(telegramBot, calendarManager, memoryCache, messageDeleter, keyboardBuilder,configManager, loggerFactory.CreateLogger<ConfirmBookingCallbackHandler>()),
+            new ConfirmCancelCallbackHandler(calendarManager, mainGroupChat, messageDeleter, loggerFactory.CreateLogger<ConfirmCancelCallbackHandler>()),
+        };
     }
 
     public async Task SetupMenu()
@@ -129,7 +148,7 @@ public class PrivateChatManager
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error processing update update: {Update}",
+            _logger.LogError(ex, "Error processing update: {Update}",
                 JsonConvert.SerializeObject(update, JsonSetting.Intended));
             await NotifyAdmins(ex);
             await SendMessageToUser(update);
@@ -140,8 +159,7 @@ public class PrivateChatManager
     {
         if (message.From?.IsBot is true && message.From.Username != _configManager.GetBotName())
             return false;
-        
-        // 1) No username
+
         if (message.Chat.Username is null)
         {
             await _telegramBot.SendMessage(message.Chat.Id,
@@ -149,8 +167,7 @@ public class PrivateChatManager
                 "https://www.youtube.com/watch?v=Q-iZWJ7IwZs");
             return false;
         }
-        
-        // 2) Not in group channel
+
         var isInGroupChat = await _mainGroupChat.IsInGroupChat(message.From.Id);
         if (!isInGroupChat)
         {
@@ -158,13 +175,12 @@ public class PrivateChatManager
                 "Вас нема в чаті спортмайданчику або вас забанили");
             return false;
         }
-        
+
         // TODO add ban users functionality
         // TODO store in DB with date for unban
-        
-        // 3) Banned
         var bannedUsers = _configManager.GetProperty("BANNED_USERS")?.Split(',') ?? Array.Empty<string>();
-        if (bannedUsers.Contains(message.From.Id.ToString()) || (message.From.Username != null && bannedUsers.Contains(message.From.Username)))
+        if (bannedUsers.Contains(message.From.Id.ToString()) ||
+            (message.From.Username != null && bannedUsers.Contains(message.From.Username)))
         {
             await _telegramBot.SendMessage(message.Chat.Id, "Ви заблоковані в цій системі.");
             return false;
@@ -204,49 +220,9 @@ public class PrivateChatManager
 
     private async Task HandleCommand(Update update)
     {
-        Message createdMessage = null;
-        switch (update.Message.Text)
-        {
-            case "/book":
-                _logger.LogInformation("Handling book command");
-                createdMessage = await _telegramBot.SendMessage(
-                    update.Message.Chat.Id,
-                    "Оберіть активність:",
-                    replyMarkup: new InlineKeyboardMarkup(GetAvailableActivities(null))
-                );
-                break;
-            case "/help":
-            case "/start":
-                _logger.LogInformation("Handling help command");
-                createdMessage = await _telegramBot.SendMessage(
-                    update.Message.Chat.Id,
-                    "Довідка: \n" +
-                    "/book для бронювання. \n" +
-                    "/cancel для скасування бронювання. \n" +
-                    "/register для реєстрації/оновлення емейла використовуйте \n"
-                );
-                break;
-            case "/register":
-                _logger.LogInformation("Handling register command");
-                createdMessage = await _telegramBot.SendMessage(
-                    update.Message.Chat.Id,
-                    "Будь ласка, надішліть ваш емейл для реєстрації приєднання до календаря."
-                );
-                break;
-            case "/cancel":
-                await CancelBooking(update);
-                break;
-            default:
-                _logger.LogInformation($"Unknown command: {update.Message.Text}");
-                createdMessage = await _telegramBot.SendMessage(
-                    update.Message.Chat.Id,
-                    "Невідома команда. Спробуйте /help."
-                );
-                break;
-        }
-
-        if (createdMessage != null)
-            _chainManager.CreateChain(createdMessage.MessageId, update.Message.MessageId);
+        var command = update.Message.Text;
+        var handler = _commandHandlers.FirstOrDefault(h => h.CanHandle(command)) ?? _unknownCommandHandler;
+        await handler.HandleAsync(update);
     }
 
     private async Task HandleEmailMessage(Message message)
@@ -278,292 +254,23 @@ public class PrivateChatManager
         }
     }
 
-    private async Task CancelBooking(Update update)
+    private async Task HandleCallbackQuery(CallbackQuery callbackQuery)
     {
-        _logger.LogInformation("Handling cancel command");
-        var userName = update.Message.Chat.Username;
-        var buttons = new List<List<InlineKeyboardButton>>();
-        await foreach (var userTimeSlot in _calendarManager.GetUserBookingAsync(userName))
-        {
-            var day = userTimeSlot.Start.Date.ToString("dd-MM-yy");
-            var time = $"{userTimeSlot.Start:hh:mm}-{userTimeSlot.End:hh:mm}";
-            var text = $"{userTimeSlot.Summary} {day} {time}";
-            var callbackDataOrUrl = EventButtonData.FromEventId(userTimeSlot.EventId).ToJson();
-            buttons.Add([new InlineKeyboardButton(text, callbackDataOrUrl)]);
-        }
+        _logger.LogInformation($"Handling callback query: {callbackQuery.Data}");
+        var type = GetCallbackType(callbackQuery.Data);
+        var handler = _callbackHandlers.FirstOrDefault(h => h.CanHandle(type));
 
-        if (buttons.Count == 0)
-        {
-            await _telegramBot.SendMessage(
-                update.Message.Chat.Id,
-                "Нема чого скасовувати"
-            );
-            return;
-        }
-
-        buttons.Add([new InlineKeyboardButton("Підтвердити скасування", new ConfirmCancelButtonData().ToJson())]);
-        buttons.Add([new InlineKeyboardButton("Не зараз", "cancel")]);
-
-        var createdMessage = await _telegramBot.SendMessage(
-            update.Message.Chat.Id,
-            "Будь ласка, Оберіть слоти які ви хочете скасувати:.", replyMarkup: new InlineKeyboardMarkup(buttons)
-        );
-
-        _chainManager.CreateChain(createdMessage.MessageId, update.Message.MessageId);
-    }
-
-    private async Task HandleCallbackQuery(CallbackQuery update)
-    {
-        _logger.LogInformation($"Handling callback query: {update.Data}");
-
-        if (update.Data == "cancel")
-        {
-            await DeleteMessage(update.Message.Chat.Id, update.Message.MessageId);
-            return;
-        }
-
-        var buttonData = JsonConvert.DeserializeObject<ButtonData>(update.Data);
-
-        switch (buttonData.Type)
-        {
-            case "SelectActivity":
-                await HandleActivitySelection(update);
-                break;
-            case "SelectDate":
-                await HandleSelectDate(update);
-                break;
-            case "SelectTime":
-                await HandleSelectTime(update);
-                break;
-            case "Confirm":
-                await HandleConfirmTimeSlotsButton(update);
-                break;
-            case "ConfirmCancel":
-                await HandleConfirmCancelButton(update);
-                break;
-            case "SelectEvent":
-                await HandleSelectTime(update);
-                break;
-            default:
-                _logger.LogInformation($"Handling unknown callback query data: {update.Data}");
-                break;
-        }
-    }
-
-    private async Task HandleActivitySelection(CallbackQuery update)
-    {
-        var buttonData = JsonConvert.DeserializeObject<ButtonData>(update.Data);
-        var message = await _telegramBot.SendMessage(
-            update.Message.Chat.Id,
-            "Оберіть дату та час для бронювання:",
-            replyMarkup: new InlineKeyboardMarkup { InlineKeyboard = await GetAvailableDates(buttonData) }
-        );
-        _chainManager.CreateChain(message.MessageId, update.Message.MessageId);
-    }
-
-    private async Task HandleConfirmTimeSlotsButton(CallbackQuery update)
-    {
-        var data = JsonConvert.DeserializeObject<ButtonData>(update.Data);
-        var replyKeyboard = update.Message.ReplyMarkup;
-        var selectedTimeSlots = new List<string>();
-        var timeSlots = new List<TimeSlot>();
-
-        foreach (var row in replyKeyboard.InlineKeyboard)
-        foreach (var button in row)
-            if (button.Text.Contains(_checkMark))
-            {
-                var selectedButton = JsonConvert.DeserializeObject<ButtonData>(button.CallbackData);
-                selectedTimeSlots.Add($"{selectedButton.Start}-{selectedButton.End}");
-                timeSlots.Add(new TimeSlot
-                    { Start = TimeOnly.Parse(selectedButton.Start), End = TimeOnly.Parse(selectedButton.End) });
-            }
-
-        var mergedTimeSlots = Utils.MergeTimeSlots(selectedTimeSlots);
-        var timeSlotsText = mergedTimeSlots.Count > 0
-            ? string.Join("\r\n", mergedTimeSlots.Select(slot => slot.ToView()))
-            : "Час не обрано";
-
-        _logger.LogInformation($"Selected time slots: {timeSlotsText}");
-
-        var activity = Activities.All[data.Activity] ?? "Інше";
-
-        var chat = update.Message.Chat;
-        if (mergedTimeSlots.Any())
-        {
-            if (!_memoryCache.TryGetValue(chat.Username, out string email))
-            {
-                var chatInfo = await _telegramBot.GetChat(chat.Id);
-                email = chatInfo.PinnedMessage?.Text;
-            }
-
-            var date = DateOnly.Parse(data.Date);
-            
-            try
-            {
-                await _calendarManager.BookSlots(chat.Username, email, activity, date, timeSlots);
-            }
-            catch (CalendarBookingRaceConditionException)
-            {
-                await RebuildTimeSlotsKeyboard(update.Message.Chat.Id, update.Message.MessageId, data.Date, data.Activity);
-                await _telegramBot.SendMessage(chat.Id, $"Нажаль, вже хтось забронював цей час швидше. Спробуйте ще");
-                return;
-            }
-            
-            await _telegramBot.SendMessage(
-                chat.Id,
-                $"Ви забронювали на {data.Date} під {activity}: {timeSlotsText} \nДякуємо за бронювання!");
-        }
+        if (handler != null)
+            await handler.HandleAsync(callbackQuery);
         else
-        {
-            await _telegramBot.SendMessage(
-                chat.Id,
-                $"Нажаль вже все заброньовано {data.Date}");
-        }
-
-        await DeleteMessage(chat.Id, update.Message.MessageId);
+            _logger.LogInformation($"Unknown callback query type: {type}");
     }
 
-    private async Task HandleConfirmCancelButton(CallbackQuery update)
+    private static string GetCallbackType(string data)
     {
-        var replyKeyboard = update.Message.ReplyMarkup;
-        var selectedEvents = new List<string>();
-        var selectedButtonsTexts = new List<string>();
-        
-        foreach (var row in replyKeyboard.InlineKeyboard)
-        foreach (var button in row)
-            if (button.Text.Contains(_checkMark))
-            {
-                var selectedButton = JsonConvert.DeserializeObject<EventButtonData>(button.CallbackData);
-                selectedEvents.Add(selectedButton.EventId);
-                selectedButtonsTexts.Add(button.Text.Replace(_checkMark, ""));
-            }
-
-        await _calendarManager.CancelEvents(selectedEvents);
-
-        await _mainGroupChat.NotifyAsync($"Cкасовано бронювання:\r\n{string.Join("\r\n",selectedButtonsTexts)}");
-
-        await DeleteMessage(update.Message.Chat.Id, update.Message.MessageId);
-    }
-
-    private async Task DeleteMessage(long chatId, int messageId)
-    {
-        var chain = _chainManager.GetChain(messageId).Distinct();
-        await chain.Foreach(async chainMessageId =>
-        {
-            try
-            {
-                await _telegramBot.DeleteMessage(chatId, chainMessageId);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error deleting message");
-            }
-            finally
-            {
-                _chainManager.Remove(chainMessageId);
-            }
-        });
-    }
-
-    private async Task HandleSelectTime(CallbackQuery update)
-    {
-        var replyKeyboard = update.Message.ReplyMarkup;
-
-        foreach (var row in replyKeyboard.InlineKeyboard)
-        foreach (var button in row)
-            if (button.CallbackData == update.Data)
-            {
-                if (!button.Text.Contains(_checkMark))
-                    button.Text = _checkMark + button.Text;
-                else
-                    button.Text = button.Text.Replace(_checkMark, "");
-            }
-
-        await _telegramBot.EditMessageReplyMarkup(
-            update.Message.Chat.Id,
-            update.Message.MessageId,
-            new InlineKeyboardMarkup { InlineKeyboard = replyKeyboard.InlineKeyboard }
-        );
-    }
-
-    private async Task HandleSelectDate(CallbackQuery update)
-    {
-        var data = JsonConvert.DeserializeObject<ButtonData>(update.Data);
-        var date = data.Date;
-        var activity = data.Activity;
-        _logger.LogInformation($"Booking date: {date}");
-        var createdMessage = await _telegramBot.SendMessage(
-            update.Message.Chat.Id,
-            $"Ви обрали дату: {date}. Будь ласка, оберіть час.",
-            replyMarkup: new InlineKeyboardMarkup { InlineKeyboard = await GetDayTimeSlotsButtons(date, activity) }
-        );
-
-        _chainManager.CreateChain(createdMessage.MessageId, update.Message.MessageId);
-    }
-
-    private async Task<List<List<InlineKeyboardButton>>> GetAvailableDates(ButtonData parentData)
-    {
-        var buttons = new List<List<InlineKeyboardButton>>();
-        var calendar = await _calendarManager.GetCalendar();
-        var availableDays = calendar.GetDaysWithEmptySlots();
-        foreach (var day in availableDays)
-        {
-            var buttonDate = day.ToString("yyyy-MM-dd");
-            var dayName = Utils.GetUkrainianDayOfWeek(day.DayOfWeek);
-            buttons.Add([
-                new InlineKeyboardButton
-                {
-                    Text = $"{buttonDate} ({dayName})", CallbackData = ButtonData.FromDate(parentData, day).ToJson()
-                }
-            ]);
-        }
-
-        buttons.Add([new InlineKeyboardButton { Text = "Скасувати", CallbackData = "cancel" }]);
-        return buttons;
-    }
-
-    private List<List<InlineKeyboardButton>> GetAvailableActivities(ButtonData parentData)
-    {
-        return Activities.All.Select((t, i) => (List<InlineKeyboardButton>)
-                         [
-                             new InlineKeyboardButton
-                                 { Text = t, CallbackData = ButtonData.FromActivity(parentData, i).ToJson() }
-                         ])
-                         .ToList();
-    }
-
-    
-    private async Task RebuildTimeSlotsKeyboard(long chatId, int messageId, string dateView, int activity)
-    {
-        var inlineKeyboardMarkup = new InlineKeyboardMarkup { InlineKeyboard = await GetDayTimeSlotsButtons(dateView, activity) };
-        await _telegramBot.EditMessageReplyMarkup(chatId, messageId, inlineKeyboardMarkup);
-    }
-    
-    private async Task<List<List<InlineKeyboardButton>>> GetDayTimeSlotsButtons(string dateView, int activity)
-    {
-        _logger.LogInformation($"Getting time slots for date: {dateView}");
-
-        var date = DateTime.Parse(dateView);
-        var buttons = new List<List<InlineKeyboardButton>>();
-        var calendar = await _calendarManager.GetCalendar();
-        var emptySlots = calendar.GetEmptySlots(DateOnly.FromDateTime(date));
-
-        foreach (var emptySlot in emptySlots)
-            buttons.Add([
-                new InlineKeyboardButton(emptySlot.ToView(),
-                    GetTimeSlotButtonData(emptySlot.Start, emptySlot.End).ToJson())
-            ]);
-
-        buttons.Add([
-            new InlineKeyboardButton { Text = "Підтвердити", CallbackData = new ConfirmButtonData(dateView, activity).ToJson() }
-        ]);
-        buttons.Add([new InlineKeyboardButton { Text = "Скасувати", CallbackData = "cancel" }]);
-        return buttons;
-    }
-
-    private ButtonData GetTimeSlotButtonData(TimeOnly from, TimeOnly to)
-    {
-        return ButtonData.FromTime(from, to);
+        if (data == "cancel") return "cancel";
+        var buttonData = JsonConvert.DeserializeObject<ButtonData>(data);
+        return buttonData?.Type ?? data;
     }
 
     public async Task SetupWebhook(string url)

@@ -9,7 +9,7 @@ public class UsersStore
     public UsersStore(IConfiguration configuration)
     {
         var projectId = configuration["GOOGLE_CLOUD_PROJECT"]
-                        ?? Environment.GetEnvironmentVariable("GOOGLE_CLOUD_PROJECT");
+                        ?? Environment.GetEnvironmentVariable("GOOGLE_CLOUD_PROJECT") ?? "activitiesplaner";
 
         _db = FirestoreDb.Create(projectId);
     }

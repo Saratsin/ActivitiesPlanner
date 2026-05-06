@@ -187,6 +187,17 @@ public abstract class CalendarManager
         return indexOf.ToString();
     }
 
+    public async Task<TimeSpan> GetUsedTime(string userName)
+    {
+        var used = TimeSpan.Zero;
+        await foreach (var userTimeSlot in GetUserBookingAsync(userName))
+        {
+            used += userTimeSlot.End - userTimeSlot.Start;
+        };
+
+        return used;
+    }
+    
     public async IAsyncEnumerable<UserTimeSlot> GetUserBookingAsync(string userName)
     {
         await Relogin();
