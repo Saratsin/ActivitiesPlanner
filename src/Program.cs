@@ -1,3 +1,4 @@
+using Newtonsoft.Json;
 using Telegram.Bot.Types;
 using TelegramBot.Calendar;
 using TelegramBot.Configuration;
@@ -44,6 +45,17 @@ if (app.Environment.IsDevelopment())
 app.UseHttpsRedirection();
 
 app.MapGet("/", () => "Ok");
+// app.MapGet("/check-config", (ConfigManager manager) =>{
+//     try
+//     {
+//         var config = manager.GetCalendarConfig();
+//         return Task.FromResult(Results.Ok($"{JsonConvert.SerializeObject(config)}"));
+//     }
+//     catch (Exception exception)
+//     {
+//         return Task.FromException<IResult>(exception);
+//     }
+// });
 
 app.MapPost("telegram/pullUpdates", async (PrivateChatManager manager) =>
 {

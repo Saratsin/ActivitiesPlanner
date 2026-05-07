@@ -43,7 +43,28 @@ public abstract class CalendarManager
 
         var calendar = new Core.Calendar(nowDate, nowDate.AddDays(config.BookingTimeRange), config);
         foreach (var @event in allEvents)
-            calendar.PushEvent(@event.Start.GetDateTime(), @event.End.GetDateTime());
+        {
+            if (@event.Recurrence is null || @event.Recurrence.Count == 0)
+            {
+                if (@event.Status == "confirmed")
+                    calendar.PushEvent(@event.Start.GetDateTime(), @event.End.GetDateTime());
+            }
+            else
+            {
+                var request = _calendarService.Events.Instances(config.Id, @event.Id);
+                request.ShowDeleted = false;
+                request.MaxResults = 100;
+                request.TimeMinDateTimeOffset = today;
+                request.TimeMaxDateTimeOffset = lastBookingDayPlusOne;
+                var regularEvents = await request.ExecuteAsync();
+                foreach (var @regularEvent in regularEvents.Items)
+                {
+                    if (@regularEvent.Status == "confirmed")
+                        calendar.PushEvent(@regularEvent.Start.GetDateTime(), @regularEvent.End.GetDateTime());
+                }
+            }
+        }
+            
 
         return calendar;
     }
@@ -202,6 +223,8 @@ public abstract class CalendarManager
     {
         await Relogin();
         var config = ConfigManager.GetCalendarConfig();
+        Console.WriteLine(config.Id);
+        Console.WriteLine(config.MaxAvailableTime);
         var eventQuery = _calendarService.Events.List(config.Id);
 
         eventQuery.TimeMinDateTimeOffset = DateTimeOffset.Now.Date;

@@ -143,7 +143,7 @@ public class PrivateChatManager
         if (message.Chat.Username is null)
         {
             await _telegramBot.SendMessage(message.Chat.Id,
-                "Щоб забронювати майданчик, треба створити ім'я користувача\r\n" +
+                "Щоб забронювати майданчик, треба створити унікальне ім'я користувача\r\n" +
                 "https://www.youtube.com/watch?v=Q-iZWJ7IwZs");
             return false;
         }
@@ -166,6 +166,14 @@ public class PrivateChatManager
             return false;
         }
 
+        // var email = await _userStore.GetEmailAsync(message.From.Id);
+        // if (email is null)
+        // {
+        //     await _telegramBot.SendMessage(message.Chat.Id, "Спочатку треба зареєєструвати email для роботи з календарем.\n" +
+        //                                                     "Для цього достатньо його ввести окремим повідомленням");
+        //     return false;
+        // }
+        
         return true;
     }
 
