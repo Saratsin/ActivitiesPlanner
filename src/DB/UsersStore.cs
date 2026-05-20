@@ -37,4 +37,16 @@ public class UsersStore
 
         return snapshot.GetValue<string>("Email");
     }
+
+    public async ValueTask<string> GetEmailAsync(string telegramUserId)
+    {
+        var doc = _db.Collection("users").WhereEqualTo("Username", telegramUserId);
+        var snapshot = await doc.GetSnapshotAsync();
+
+        var documentSnapshot = snapshot.Documents.FirstOrDefault();
+        if (documentSnapshot?.Exists is not true)
+            return null;
+
+        return documentSnapshot.GetValue<string>("Email");
+    }
 }

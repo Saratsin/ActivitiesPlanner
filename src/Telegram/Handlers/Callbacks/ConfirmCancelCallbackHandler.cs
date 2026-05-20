@@ -42,8 +42,12 @@ public class ConfirmCancelCallbackHandler : ICallbackQueryHandler
                 selectedButtonsTexts.Add(button.Text.Replace(CheckMark, ""));
             }
 
-        await _calendarManager.CancelEvents(selectedEvents);
-        await _mainGroupChat.NotifyAsync($"Cкасовано бронювання:\r\n{string.Join("\r\n", selectedButtonsTexts)}");
+        if (selectedEvents.Count > 0)
+        {
+            await _calendarManager.CancelEvents(selectedEvents);
+            await _mainGroupChat.NotifyAsync($"Cкасовано бронювання:\r\n{string.Join("\r\n", selectedButtonsTexts)}");    
+        }
+        
         await _messageDeleter.DeleteAsync(callbackQuery.Message.Chat.Id, callbackQuery.Message.MessageId);
     }
 }

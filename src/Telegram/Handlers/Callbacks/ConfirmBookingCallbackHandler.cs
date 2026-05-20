@@ -101,7 +101,7 @@ public class ConfirmBookingCallbackHandler : ICallbackQueryHandler
             }
             else
             {
-                email = await _userStore.GetEmailAsync(callbackQuery.From.Id); 
+                email = await _userStore.GetEmailAsync(userName); 
             }
             
             var date = DateOnly.Parse(data.Date);

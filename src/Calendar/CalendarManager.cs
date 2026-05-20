@@ -73,6 +73,7 @@ public abstract class CalendarManager
     {
         await Relogin();
 
+        _logger.LogInformation("Booking slots for {username} ({email}) on {date} for {activity}", username, email, date, activity);
         var config = ConfigManager.GetCalendarConfig();
         var calendarId = config.Id;
         var isEmailExists = string.IsNullOrWhiteSpace(email);
@@ -81,6 +82,8 @@ public abstract class CalendarManager
         foreach (var timeSlot in timeSlots)
         {
             var insertRequest = events.Insert(CreateEvent(username, email, activity, date, timeSlot, isEmailExists), config.Id);
+            insertRequest.SendUpdates = EventsResource.InsertRequest.SendUpdatesEnum.All;
+            insertRequest.SendNotifications = true;
             var response = await insertRequest.ExecuteAsync();
             newEvents.Add(response);
         }
@@ -163,12 +166,12 @@ public abstract class CalendarManager
             Start = new EventDateTime
             {
                 DateTimeDateTimeOffset = new DateTimeOffset(date, timeSlot.Start, TimeSpan.FromHours(3)),
-                TimeZone = "Europe/Kiev"
+                TimeZone = "Europe/Kyiv"
             },
             End = new EventDateTime
             {
                 DateTimeDateTimeOffset = new DateTimeOffset(date, timeSlot.End, TimeSpan.FromHours(3)),
-                TimeZone = "Europe/Kiev"
+                TimeZone = "Europe/Kyiv"
             },
             // Creator = new Event.CreatorData {Email = email, Id = username, DisplayName = username, Self = true},
             // Organizer = new Event.OrganizerData {Email = email, Id = username, DisplayName = username, Self = true},
@@ -179,14 +182,14 @@ public abstract class CalendarManager
                     {
                         Email = email,
                         DisplayName = username,
-                        Id = username
+                        Optional = true,
                     }
                 }
                 : null,
             Summary = $"{activity}",
             Description =
                 $"<b>Телеграм</b>\n{username}\nЗв'язатися зі мною:t.me/{username}\n<br>Сервіс з бронювання СпортМайданчику в ЖК \"Нова Англія\" " +
-                $"Бронювати <a href=\"https://calendar.google.com/calendar/u/0/appointments/schedules/AcZssZ2ZtidqUFIcSRBmf1j2cvLeBPI8h5GO5EMgQm9UhsqXFzwde4HgvBiT4VIUhncYOQs3N7Ybl3No\">туть</a>",
+                $"Бронювати <a href=\"https://t.me/new_england_sports_field_bot\">туть</a>",
             Status = "confirmed",
             Transparency = "opaque",
             Visibility = "public",
@@ -195,7 +198,6 @@ public abstract class CalendarManager
             Location = "Нова Англія, вулиця Михайла Максимовича, 24, Київ, Україна, 03066",
             GuestsCanModify = false,
             GuestsCanInviteOthers = true
-                
         };
     }
 
@@ -223,12 +225,10 @@ public abstract class CalendarManager
     {
         await Relogin();
         var config = ConfigManager.GetCalendarConfig();
-        Console.WriteLine(config.Id);
-        Console.WriteLine(config.MaxAvailableTime);
         var eventQuery = _calendarService.Events.List(config.Id);
 
-        eventQuery.TimeMinDateTimeOffset = DateTimeOffset.Now.Date;
-        eventQuery.TimeMaxDateTimeOffset = DateTimeOffset.Now.Date.AddDays(7);
+        eventQuery.TimeMinDateTimeOffset = DateTimeOffset.Now;
+        eventQuery.TimeMaxDateTimeOffset = DateTimeOffset.Now.Date.AddDays(config.BookingTimeRange*2);
 
         var allEvents = new List<Event>();
         var events = await eventQuery.ExecuteAsync();

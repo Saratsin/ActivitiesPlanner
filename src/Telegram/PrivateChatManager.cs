@@ -99,31 +99,43 @@ public class PrivateChatManager
             var chatType = message?.Chat?.Type;
             if (chatType != ChatType.Private) return;
 
-            if (!await ValidateUserAsync(message))
-                return;
-
-            _logger.LogInformation($"Received update {updateLogData}");
-
-            if (update.Message != null)
+            var scopeData = new Dictionary<string, object>
             {
-                if (string.IsNullOrEmpty(message.Text))
-                {
-                    _logger.LogInformation($"Received message without text from {message.From?.Username}");
+                ["Username"] = message.From?.Username ?? "unknown",
+                ["UserId"] = message.From?.Id ?? 0,
+                ["ChatId"] = message.Chat?.Id ?? 0,
+            };
+            
+            using (_logger.BeginScope(scopeData))
+            {
+
+                if (!await ValidateUserAsync(message, update))
                     return;
+
+                _logger.LogInformation($"Received update {updateLogData}");
+
+                if (update.Message != null)
+                {
+                    if (string.IsNullOrEmpty(message.Text))
+                    {
+                        _logger.LogInformation($"Received message without text from {message.From?.Username}");
+                        return;
+                    }
+
+                    _logger.LogInformation($"Received message: {message.Text} from {message.From?.Username}");
+                    if (message.Text.StartsWith("/"))
+                        await HandleCommand(update);
+                    else if (message.Text.Contains("@"))
+                        await HandleEmailMessage(message);
+                }
+                else if (update.CallbackQuery != null)
+                {
+                    var callbackQuery = update.CallbackQuery;
+                    _logger.LogInformation(
+                        $"Received callback query: {callbackQuery.Data} from {callbackQuery.From?.Username}");
+                    await HandleCallbackQuery(callbackQuery);
                 }
 
-                _logger.LogInformation($"Received message: {message.Text} from {message.From?.Username}");
-                if (message.Text.StartsWith("/"))
-                    await HandleCommand(update);
-                else if (message.Text.Contains("@"))
-                    await HandleEmailMessage(message);
-            }
-            else if (update.CallbackQuery != null)
-            {
-                var callbackQuery = update.CallbackQuery;
-                _logger.LogInformation(
-                    $"Received callback query: {callbackQuery.Data} from {callbackQuery.From?.Username}");
-                await HandleCallbackQuery(callbackQuery);
             }
         }
         catch (Exception ex)
@@ -135,7 +147,7 @@ public class PrivateChatManager
         }
     }
 
-    private async Task<bool> ValidateUserAsync(Message message)
+    private async Task<bool> ValidateUserAsync(Message message, Update update)
     {
         if (message.From?.IsBot is true && message.From.Username != _configManager.GetBotName())
             return false;
@@ -166,13 +178,18 @@ public class PrivateChatManager
             return false;
         }
 
-        // var email = await _userStore.GetEmailAsync(message.From.Id);
-        // if (email is null)
-        // {
-        //     await _telegramBot.SendMessage(message.Chat.Id, "Спочатку треба зареєєструвати email для роботи з календарем.\n" +
-        //                                                     "Для цього достатньо його ввести окремим повідомленням");
-        //     return false;
-        // }
+        if (update.CallbackQuery is not null || update.Message?.Text == "/book")
+        {
+            var email = await _userStore.GetEmailAsync(message.Chat.Username);
+            if (email is null)
+            {
+                _logger.LogWarning("Email is null for username: {UserId}", message.Chat.Username);
+                await _telegramBot.SendMessage(message.Chat.Id, "Спочатку треба зареєєструвати email для роботи з календарем.\n" +
+                                                                "Для цього достатньо його ввести окремим повідомленням");
+                return false;
+            }    
+        }
+        
         
         return true;
     }

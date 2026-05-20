@@ -34,7 +34,7 @@ public class CancelCommandHandler : ICommandHandler
         await foreach (var userTimeSlot in _calendarManager.GetUserBookingAsync(userName))
         {
             var day = userTimeSlot.Start.Date.ToString("dd-MM-yy");
-            var time = $"{userTimeSlot.Start:hh:mm}-{userTimeSlot.End:hh:mm}";
+            var time = $"{userTimeSlot.Start:HH:mm}-{userTimeSlot.End:HH:mm}";
             var text = $"{userTimeSlot.Summary} {day} {time}";
             var callbackData = EventButtonData.FromEventId(userTimeSlot.EventId).ToJson();
             buttons.Add([new InlineKeyboardButton(text, callbackData)]);
