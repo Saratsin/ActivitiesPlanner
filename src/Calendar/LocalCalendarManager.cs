@@ -21,9 +21,9 @@ public class LocalCalendarManager : CalendarManager
         try
         {
             var settings = ConfigManager.GetCalendarLoginSetting();
-
+            
             var localServerCodeReceiver = new StaticLocalHostReceiver();
-
+            
             _authorize = await GoogleWebAuthorizationBroker.AuthorizeAsync(new ClientSecrets
                 {
                     ClientSecret = settings.Secret,
@@ -32,17 +32,42 @@ public class LocalCalendarManager : CalendarManager
                 new[] { CalendarService.Scope.Calendar },
                 settings.User,
                 CancellationToken.None,
-                new FileDataStore("Cache"), localServerCodeReceiver
+                new FileDataStore("Cache4"), localServerCodeReceiver
             );
-
+            
             var initializer = new BaseClientService.Initializer
             {
                 HttpClientInitializer = _authorize,
                 ApplicationName = "TelegramBot"
             };
-
-
+            
+            
             return new CalendarService(initializer);
+            
+            // var settings = ConfigManager.GetCalendarLoginSetting();
+            //
+            // var flow = new GoogleAuthorizationCodeFlow(new GoogleAuthorizationCodeFlow.Initializer
+            // {
+            //     ClientSecrets = new ClientSecrets
+            //     {
+            //         ClientId = settings.ClientId,
+            //         ClientSecret = settings.Secret
+            //     },
+            //     Scopes = new[] { CalendarService.Scope.Calendar },
+            //     DataStore = new FileDataStore("Cache")
+            // });
+            //
+            // //var receiver = new LocalServerCodeReceiver();
+            // var receiver = new StaticLocalHostReceiver();
+            // Console.WriteLine(receiver.RedirectUri);
+            //
+            // var authUrl = (GoogleAuthorizationCodeRequestUrl)flow.CreateAuthorizationCodeRequest(receiver.RedirectUri);
+            // authUrl.AccessType = "offline";
+            // authUrl.Prompt = "consent";
+            //
+            // var codeResponse = await receiver.ReceiveCodeAsync(authUrl, CancellationToken.None);
+            // var codeResponseCode = codeResponse.Code;
+            // return null;
         }
         catch (Exception e)
         {

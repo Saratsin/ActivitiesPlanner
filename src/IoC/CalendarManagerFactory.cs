@@ -16,6 +16,10 @@ public class CalendarManagerFactory
 
     public CalendarManager Create()
     {
+        var loginSetting = _configManager.GetCalendarLoginSetting();
+        if (!string.IsNullOrEmpty(loginSetting?.RefreshToken))
+            return new CloudOAuthCalendarManager(_configManager, _logger);
+        
         var isCloudRun = _configManager.IsCloudRun();
         var mode = isCloudRun ? "Cloud" : "Local";
         _logger.LogInformation($"Creating CalendarManager for {mode}");

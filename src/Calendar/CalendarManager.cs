@@ -75,17 +75,25 @@ public abstract class CalendarManager
 
         _logger.LogInformation("Booking slots for {username} ({email}) on {date} for {activity}", username, email, date, activity);
         var config = ConfigManager.GetCalendarConfig();
-        var calendarId = config.Id;
-        var isEmailExists = string.IsNullOrWhiteSpace(email);
+        var calendarId = "primary" ?? config.Id;
+        var isEmailExists = !string.IsNullOrWhiteSpace(email);
         var events = _calendarService.Events;
         var newEvents = new List<Event>();
         foreach (var timeSlot in timeSlots)
         {
-            var insertRequest = events.Insert(CreateEvent(username, email, activity, date, timeSlot, isEmailExists), config.Id);
+            var insertRequest = events.Insert(CreateEvent(username, email, activity, date, timeSlot, isEmailExists), calendarId);
             insertRequest.SendUpdates = EventsResource.InsertRequest.SendUpdatesEnum.All;
-            insertRequest.SendNotifications = true;
-            var response = await insertRequest.ExecuteAsync();
-            newEvents.Add(response);
+            var created = await insertRequest.ExecuteAsync();
+            newEvents.Add(created);
+            
+            _logger.LogInformation("EventId: {CreatedId}", created.Id);
+            _logger.LogInformation("Organizer: {OrganizerEmail}", created.Organizer?.Email);
+            _logger.LogInformation("Calendar attendees count:   {AttendeesCount}", created.Attendees?.Count);
+            if (created.Attendees != null)
+            {
+                foreach (var a in created.Attendees)
+                    _logger.LogInformation("{Email} | {ResponseStatus} | organizer={Organizer}", a.Email, a.ResponseStatus, a.Organizer);
+            }
         }
 
         await CheckRaceCondition(newEvents, config, calendarId);
@@ -197,7 +205,7 @@ public abstract class CalendarManager
             ColorId = GetColorFromActivity(activity),
             Location = "Нова Англія, вулиця Михайла Максимовича, 24, Київ, Україна, 03066",
             GuestsCanModify = false,
-            GuestsCanInviteOthers = true
+            GuestsCanInviteOthers = true,
         };
     }
 

@@ -49,6 +49,7 @@ public class ConfigManager : IConfigManager
         section[nameof(calendarApiSettings.User)] = calendarApiSettings.User;
         section[nameof(calendarApiSettings.Secret)] = calendarApiSettings.Secret;
         section[nameof(calendarApiSettings.ClientId)] = calendarApiSettings.ClientId;
+        section[nameof(calendarApiSettings.RefreshToken)] = calendarApiSettings.RefreshToken;
     }
 
     public string GetBotToken() => _configuration.GetSection("TelegramBotSecret")

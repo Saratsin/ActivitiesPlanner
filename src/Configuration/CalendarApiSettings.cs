@@ -5,4 +5,5 @@ public class CalendarApiSettings
     public string User { get; set; }
     public string ClientId { get; set; }
     public string Secret { get; set; }
+    public string RefreshToken { get; set; }
 }
