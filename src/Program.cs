@@ -1,4 +1,5 @@
-using Newtonsoft.Json;
+using System.Text;
+using Microsoft.AspNetCore.Mvc;
 using Telegram.Bot.Types;
 using TelegramBot.Calendar;
 using TelegramBot.Configuration;
@@ -10,7 +11,7 @@ using TelegramBot.Telegram;
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddEndpointsApiExplorer();
-builder.Services.AddLogging(loggingBuilder => loggingBuilder.AddConsole().SetMinimumLevel(LogLevel.Information));
+builder.Services.AddLogging(loggingBuilder => loggingBuilder.AddJsonConsole(options => options.IncludeScopes = true).SetMinimumLevel(LogLevel.Information));
 builder.Services.AddSwaggerGen();
 builder.Services.AddMemoryCache(options => options.ExpirationScanFrequency = TimeSpan.FromDays(10));
 
@@ -94,6 +95,27 @@ app.MapGet("/calendar", async (CalendarManager manager) =>
 {
     var calendar = await manager.GetCalendar();
     return Results.Ok($"200 Ok: {string.Join("\r\n", calendar.GetDaysWithEmptySlots())}");
+});
+app.MapGet("/calendar/usedTime/{userName}", async (CalendarManager manager, [FromRoute]  string userName) =>
+{
+    var userTime = await manager.GetUsedTime(userName:userName);
+    return Results.Ok($"200 Ok: Used time:{userTime}");
+});
+
+app.MapGet("/calendar/slots/{userName}", async (CalendarManager manager, [FromRoute]  string userName) =>
+{
+    var sb = new StringBuilder();
+    
+    sb.AppendLine($"User: {userName}");
+    var tz = TimeZoneInfo.FindSystemTimeZoneById("Europe/Kyiv");
+    await foreach (var timeSlot in manager.GetUserBookingAsync(userName: userName))
+    {
+        var created = TimeZoneInfo.ConvertTime(timeSlot.EventCreatedDateTimeOffset.GetValueOrDefault(),tz);
+        var from = TimeZoneInfo.ConvertTime(timeSlot.Start, tz).ToString("dd-MM-yy HH:mm");
+        var to = TimeZoneInfo.ConvertTime(timeSlot.End, tz).ToString("dd-MM-yy HH:mm");
+        sb.AppendLine($"Event id {timeSlot.EventId} ({created}), {from} - {to}");
+    }
+    return Results.Ok(sb.ToString());
 });
 
 

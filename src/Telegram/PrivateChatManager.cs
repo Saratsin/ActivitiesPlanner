@@ -31,7 +31,7 @@ public class PrivateChatManager
     public PrivateChatManager(IConfigManager configManager,
         ITelegramBotClient telegramBot,
         MainGroupChat mainGroupChat,
-        ILoggerFactory loggerFactory,
+        ILogger<PrivateChatManager> logger,
         IMemoryCache memoryCache,
         UsersStore userStore,
         IEnumerable<ICommandHandler> commandHandlers, 
@@ -41,7 +41,7 @@ public class PrivateChatManager
         _configManager = configManager;
         _telegramBot = telegramBot;
         _mainGroupChat = mainGroupChat;
-        _logger = loggerFactory.CreateLogger<PrivateChatManager>();
+        _logger = logger;
         _memoryCache = memoryCache;
         _userStore = userStore;
         int.TryParse(_configManager.GetProperty("PULL_OFFSET"), out _pullOffset);
@@ -92,22 +92,24 @@ public class PrivateChatManager
 
     public async Task ProcessUpdate(Update update)
     {
-        try
+        var message = update?.Message ?? update?.CallbackQuery?.Message;
+        var xRay = Guid.NewGuid().ToString();
+        var scopeData = new Dictionary<string, object>
         {
-            var updateLogData = JsonConvert.SerializeObject(update, JsonSetting.Intended);
-            var message = update?.Message ?? update?.CallbackQuery?.Message;
-            var chatType = message?.Chat?.Type;
-            if (chatType != ChatType.Private) return;
+            ["Username"] = message.From?.Username ?? "unknown",
+            ["UserId"] = message.From?.Id ?? 0,
+            ["ChatId"] = message.Chat?.Id ?? 0,
+            ["ChatUserName"] = message.Chat.Username ?? "unknown",
+            ["XRay"] = xRay
+        };
 
-            var scopeData = new Dictionary<string, object>
+        using (_logger.BeginScope(scopeData))
+        {
+            try
             {
-                ["Username"] = message.From?.Username ?? "unknown",
-                ["UserId"] = message.From?.Id ?? 0,
-                ["ChatId"] = message.Chat?.Id ?? 0,
-            };
-            
-            using (_logger.BeginScope(scopeData))
-            {
+                var updateLogData = JsonConvert.SerializeObject(update, JsonSetting.Intended);
+                var chatType = message?.Chat?.Type;
+                if (chatType != ChatType.Private) return;
 
                 if (!await ValidateUserAsync(message, update))
                     return;
@@ -136,14 +138,15 @@ public class PrivateChatManager
                     await HandleCallbackQuery(callbackQuery);
                 }
 
+
             }
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error processing update: {Update}",
-                JsonConvert.SerializeObject(update, JsonSetting.Intended));
-            await NotifyAdmins(ex);
-            await SendMessageToUser(update);
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error processing update: {Update}",
+                    JsonConvert.SerializeObject(update, JsonSetting.Intended));
+                await NotifyAdmins(ex, xRay);
+                await SendMessageToUser(update);
+            }
         }
     }
 
@@ -210,12 +213,12 @@ public class PrivateChatManager
         }
     }
 
-    private async Task NotifyAdmins(Exception exception)
+    private async Task NotifyAdmins(Exception exception, string xRay = "")
     {
         try
         {
             var adminsChat = _configManager.GetAdminsChats();
-            foreach (var chatId in adminsChat) await _telegramBot.SendMessage(chatId, $"Error: {exception.Message}");
+            foreach (var chatId in adminsChat) await _telegramBot.SendMessage(chatId, $"Error: {exception.Message}. \r\n XRay :{xRay}");
         }
         catch (Exception e)
         {

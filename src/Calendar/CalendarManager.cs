@@ -79,9 +79,12 @@ public abstract class CalendarManager
         var isEmailExists = !string.IsNullOrWhiteSpace(email);
         var events = _calendarService.Events;
         var newEvents = new List<Event>();
+        var currentDate = DateTime.UtcNow;
+        var tz = TimeZoneInfo.FindSystemTimeZoneById("Europe/Kyiv");
+        var local = TimeZoneInfo.ConvertTime(currentDate, tz);
         foreach (var timeSlot in timeSlots)
         {
-            var insertRequest = events.Insert(CreateEvent(username, email, activity, date, timeSlot, isEmailExists), calendarId);
+            var insertRequest = events.Insert(CreateEvent(username, email, activity, date, timeSlot, isEmailExists, local), calendarId);
             insertRequest.SendUpdates = EventsResource.InsertRequest.SendUpdatesEnum.All;
             var created = await insertRequest.ExecuteAsync();
             newEvents.Add(created);
@@ -166,7 +169,8 @@ public abstract class CalendarManager
         return allEvents;
     }
 
-    private Event CreateEvent(string username, string email, string activity, DateOnly date, TimeSlot timeSlot, bool isEmailExists)
+    private Event CreateEvent(string username, string email, string activity, DateOnly date, TimeSlot timeSlot,
+        bool isEmailExists, DateTime currentDate)
     {
         return new Event
         {
@@ -196,8 +200,9 @@ public abstract class CalendarManager
                 : null,
             Summary = $"{activity}",
             Description =
-                $"<b>Телеграм</b>\n{username}\nЗв'язатися зі мною:t.me/{username}\n<br>Сервіс з бронювання СпортМайданчику в ЖК \"Нова Англія\" " +
-                $"Бронювати <a href=\"https://t.me/new_england_sports_field_bot\">туть</a>",
+                $"<b>Телеграм</b>\n{username}\nЗв'язатися зі мною:t.me/{username}\n<br>Сервіс з бронювання СпортМайданчику в ЖК \"Нова Англія\" \n" +
+                $"Бронювати <a href=\"https://t.me/new_england_sports_field_bot\">тут</a>\n"+
+                $"Дата бронювання: {currentDate:O}",
             Status = "confirmed",
             Transparency = "opaque",
             Visibility = "public",
@@ -250,7 +255,7 @@ public abstract class CalendarManager
 
         foreach (var @event in allEvents.Where(@event => @event.Description?.Contains(userName) == true))
             yield return new UserTimeSlot(@event.Id, @event.Start.DateTimeDateTimeOffset.Value,
-                @event.End.DateTimeDateTimeOffset.Value, @event.Summary);
+                @event.End.DateTimeDateTimeOffset.Value, @event.Summary, @event.CreatedDateTimeOffset);
     }
 
     public async Task CancelEvents(List<string> selectedEvents)
