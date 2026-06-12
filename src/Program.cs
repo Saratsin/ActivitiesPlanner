@@ -96,24 +96,26 @@ app.MapGet("/calendar", async (CalendarManager manager) =>
     var calendar = await manager.GetCalendar();
     return Results.Ok($"200 Ok: {string.Join("\r\n", calendar.GetDaysWithEmptySlots())}");
 });
-app.MapGet("/calendar/usedTime/{userName}", async (CalendarManager manager, [FromRoute]  string userName) =>
+app.MapGet("/calendar/usedTime/{userName}", async (CalendarManager manager, [FromRoute]  string userName,
+    [FromQuery] DateTime? from, [FromQuery] DateTime? to) =>
 {
-    var userTime = await manager.GetUsedTime(userName:userName);
+    var userTime = await manager.GetUsedTime(userName:userName, from, to);
     return Results.Ok($"200 Ok: Used time:{userTime}");
 });
 
-app.MapGet("/calendar/slots/{userName}", async (CalendarManager manager, [FromRoute]  string userName) =>
+app.MapGet("/calendar/slots/{userName}", async (CalendarManager manager, [FromRoute]  string userName, 
+    [FromQuery] DateTime? from, [FromQuery] DateTime? to) =>
 {
     var sb = new StringBuilder();
     
     sb.AppendLine($"User: {userName}");
     var tz = TimeZoneInfo.FindSystemTimeZoneById("Europe/Kyiv");
-    await foreach (var timeSlot in manager.GetUserBookingAsync(userName: userName))
+    await foreach (var timeSlot in manager.GetUserBookingAsync(userName: userName, from, to))
     {
         var created = TimeZoneInfo.ConvertTime(timeSlot.EventCreatedDateTimeOffset.GetValueOrDefault(),tz);
-        var from = TimeZoneInfo.ConvertTime(timeSlot.Start, tz).ToString("dd-MM-yy HH:mm");
-        var to = TimeZoneInfo.ConvertTime(timeSlot.End, tz).ToString("dd-MM-yy HH:mm");
-        sb.AppendLine($"Event id {timeSlot.EventId} ({created}), {from} - {to}");
+        var timeSlotFrom = TimeZoneInfo.ConvertTime(timeSlot.Start, tz).ToString("dd-MM-yy HH:mm");
+        var timeSlotTo = TimeZoneInfo.ConvertTime(timeSlot.End, tz).ToString("dd-MM-yy HH:mm");
+        sb.AppendLine($"Event id {timeSlot.EventId} ({created}), {timeSlotFrom} - {timeSlotTo}");
     }
     return Results.Ok(sb.ToString());
 });

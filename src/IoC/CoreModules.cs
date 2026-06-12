@@ -19,7 +19,14 @@ public static class CoreModules
         });
 
         webApplicationBuilder.Services.AddHttpClient("TelegramBot",
-            client => client.BaseAddress = new Uri("https://api.telegram.org/"));
+            client =>
+            {
+                client.BaseAddress = new Uri("https://api.telegram.org/");
+                client.DefaultRequestHeaders.Add("User-Agent", "TelegramBot");
+                client.Timeout = TimeSpan.FromSeconds(240);
+                client.DefaultRequestHeaders.Add("Accept", "application/json");
+                client.DefaultRequestHeaders.Add("Accept-Encoding", "gzip, deflate");
+            });
         webApplicationBuilder.Services.AddTransient<ITelegramBotClient, TelegramBotClient>(provider =>
         {
             var configManager = provider.GetRequiredService<IConfigManager>();

@@ -223,10 +223,10 @@ public abstract class CalendarManager
         return indexOf.ToString();
     }
 
-    public async Task<TimeSpan> GetUsedTime(string userName)
+    public async Task<TimeSpan> GetUsedTime(string userName, DateTime? from = null, DateTime? to = null)
     {
         var used = TimeSpan.Zero;
-        await foreach (var userTimeSlot in GetUserBookingAsync(userName))
+        await foreach (var userTimeSlot in GetUserBookingAsync(userName, from, to))
         {
             used += userTimeSlot.End - userTimeSlot.Start;
         };
@@ -234,14 +234,14 @@ public abstract class CalendarManager
         return used;
     }
     
-    public async IAsyncEnumerable<UserTimeSlot> GetUserBookingAsync(string userName)
+    public async IAsyncEnumerable<UserTimeSlot> GetUserBookingAsync(string userName, DateTime? from = null, DateTime? to = null)
     {
         await Relogin();
         var config = ConfigManager.GetCalendarConfig();
         var eventQuery = _calendarService.Events.List(config.Id);
 
-        eventQuery.TimeMinDateTimeOffset = DateTimeOffset.Now;
-        eventQuery.TimeMaxDateTimeOffset = DateTimeOffset.Now.Date.AddDays(config.BookingTimeRange*2);
+        eventQuery.TimeMinDateTimeOffset = from ?? DateTimeOffset.Now;
+        eventQuery.TimeMaxDateTimeOffset = to ?? DateTimeOffset.Now.Date.AddDays(config.BookingTimeRange*2);
 
         var allEvents = new List<Event>();
         var events = await eventQuery.ExecuteAsync();
